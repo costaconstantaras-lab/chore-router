@@ -1,0 +1,436 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#1a1614">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta http-equiv="Cache-Control" content="no-cache">
+  <title>Chore Router</title>
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: #1a1614;
+      color: #f0ebe3;
+      font-family: -apple-system, 'Segoe UI', sans-serif;
+      font-size: 16px;
+      min-height: 100vh;
+      padding-bottom: env(safe-area-inset-bottom, 16px);
+    }
+
+    #header {
+      position: sticky;
+      top: 0;
+      background: #1a1614;
+      padding: 20px 16px 0;
+      z-index: 10;
+      border-bottom: 1px solid #2e2825;
+      padding-bottom: 12px;
+    }
+
+    h1 {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: 0.04em;
+      color: #c8956c;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    #progress-bar-container {
+      height: 6px;
+      background: #2e2825;
+      border-radius: 3px;
+      overflow: hidden;
+      margin-bottom: 8px;
+    }
+
+    #progress-bar {
+      height: 100%;
+      background: #c8956c;
+      border-radius: 3px;
+      width: 0%;
+      transition: width 0.3s ease;
+    }
+
+    #progress-label {
+      font-size: 13px;
+      color: #8b7355;
+      letter-spacing: 0.02em;
+    }
+
+    #loading {
+      padding: 48px 16px;
+      text-align: center;
+      color: #8b7355;
+      font-size: 15px;
+    }
+
+    .spinner {
+      display: inline-block;
+      width: 24px;
+      height: 24px;
+      border: 2px solid #2e2825;
+      border-top-color: #c8956c;
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+      margin-bottom: 12px;
+    }
+
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #content {
+      padding: 0 0 16px;
+    }
+
+    .zone-section {
+      margin-top: 8px;
+    }
+
+    .zone-header {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #8b7355;
+      text-transform: uppercase;
+      padding: 16px 16px 8px;
+    }
+
+    .task-row {
+      min-height: 56px;
+      padding: 16px;
+      display: flex;
+      align-items: center;
+      border-bottom: 1px solid #2e2825;
+      cursor: pointer;
+      touch-action: manipulation;
+      user-select: none;
+      -webkit-user-select: none;
+      transition: background 0.15s;
+      font-size: 16px;
+      line-height: 1.4;
+    }
+
+    .task-row:active {
+      background: #221e1b;
+    }
+
+    .task-row::before {
+      content: '';
+      display: inline-block;
+      width: 22px;
+      height: 22px;
+      min-width: 22px;
+      border: 2px solid #4a3f36;
+      border-radius: 50%;
+      margin-right: 14px;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .task-row.completed {
+      opacity: 0.35;
+    }
+
+    .task-row.completed::before {
+      background: #c8956c;
+      border-color: #c8956c;
+    }
+
+    .task-row.completed .task-label {
+      text-decoration: line-through;
+    }
+
+    .task-label {
+      flex: 1;
+    }
+
+    .empty-state, .error-state, .complete-state {
+      padding: 64px 24px;
+      text-align: center;
+      color: #8b7355;
+    }
+
+    .empty-state p, .error-state p, .complete-state p {
+      font-size: 17px;
+      margin-bottom: 8px;
+    }
+
+    .complete-state .big {
+      font-size: 40px;
+      margin-bottom: 16px;
+    }
+
+    .complete-state .headline {
+      font-size: 22px;
+      color: #f0ebe3;
+      font-weight: 600;
+      margin-bottom: 8px;
+    }
+
+    #carry-summary {
+      margin: 8px 0 0;
+      border-top: 1px solid #2e2825;
+      padding: 16px;
+    }
+
+    #carry-summary h2 {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: #8b7355;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    .carry-item {
+      font-size: 14px;
+      color: #c8b89a;
+      margin-bottom: 8px;
+      line-height: 1.5;
+    }
+
+    .carry-item strong {
+      color: #f0ebe3;
+      font-weight: 500;
+    }
+  </style>
+</head>
+<body>
+
+<div id="header">
+  <h1>Chore Router</h1>
+  <div id="progress-bar-container">
+    <div id="progress-bar"></div>
+  </div>
+  <div id="progress-label"></div>
+</div>
+
+<div id="loading">
+  <div class="spinner"></div>
+  <p>Loading...</p>
+</div>
+
+<div id="content" hidden></div>
+<div id="carry-summary" hidden></div>
+
+<script>
+  const APPS_SCRIPT_URL = 'YOUR_DEPLOYED_APPS_SCRIPT_URL_HERE';
+  const CACHE_KEY = 'chore_router_cache';
+
+  let state = { session: null, tasks: [] };
+
+  const $ = id => document.getElementById(id);
+
+  window.addEventListener('DOMContentLoaded', init);
+
+  async function init() {
+    const cached = loadCache();
+    if (cached) {
+      hideLoading();
+      state = cached;
+      renderAll(state);
+    }
+
+    try {
+      const fresh = await fetchActive();
+      saveCache(fresh);
+      state = fresh;
+      hideLoading();
+      renderAll(state);
+    } catch (err) {
+      hideLoading();
+      if (!cached) {
+        showError('Could not load chores.<br>Check your connection.');
+      }
+    }
+  }
+
+  async function fetchActive() {
+    const res = await fetch(APPS_SCRIPT_URL + '?action=get_active');
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+
+  async function postAction(payload) {
+    const res = await fetch(APPS_SCRIPT_URL, {
+      method: 'POST',
+      headers: { 'Content-Type': 'text/plain' },
+      body: JSON.stringify(payload)
+    });
+    if (!res.ok) throw new Error('HTTP ' + res.status);
+    return res.json();
+  }
+
+  function renderAll(data) {
+    if (!data.session || !data.tasks || data.tasks.length === 0) {
+      showEmptyState();
+      return;
+    }
+    $('content').hidden = false;
+    renderProgress(data.tasks);
+    renderTaskList(data.tasks);
+    renderCarrySummary(data.tasks);
+    if (data.tasks.every(t => t.completed)) {
+      showCompletionState();
+    }
+  }
+
+  function renderProgress(tasks) {
+    const total = tasks.length;
+    const done = tasks.filter(t => t.completed).length;
+    const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+    $('progress-bar').style.width = pct + '%';
+    $('progress-label').textContent = done + ' of ' + total + ' done';
+  }
+
+  function renderTaskList(tasks) {
+    const zones = new Map();
+    for (const t of tasks) {
+      if (!zones.has(t.zone)) zones.set(t.zone, []);
+      zones.get(t.zone).push(t);
+    }
+
+    const content = $('content');
+    content.innerHTML = '';
+
+    for (const [zone, zoneTasks] of zones) {
+      const section = document.createElement('div');
+      section.className = 'zone-section';
+
+      const header = document.createElement('div');
+      header.className = 'zone-header';
+      header.textContent = zone;
+      section.appendChild(header);
+
+      for (const task of zoneTasks) {
+        section.appendChild(buildTaskRow(task));
+      }
+
+      content.appendChild(section);
+    }
+  }
+
+  function buildTaskRow(task) {
+    const row = document.createElement('div');
+    row.className = 'task-row' + (task.completed ? ' completed' : '');
+    row.setAttribute('role', 'button');
+    row.setAttribute('tabindex', '0');
+    row.dataset.sortOrder = task.sort_order;
+
+    const label = document.createElement('span');
+    label.className = 'task-label';
+    label.textContent = task.task;
+    row.appendChild(label);
+
+    const handler = () => handleTaskTap(task);
+    row.addEventListener('click', handler);
+    row.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }
+    });
+
+    return row;
+  }
+
+  async function handleTaskTap(task) {
+    if (task.completed) return;
+
+    task.completed = true;
+    saveCache({ session: state.session, tasks: state.tasks });
+
+    const rowEl = document.querySelector('[data-sort-order="' + task.sort_order + '"]');
+    if (rowEl) rowEl.classList.add('completed');
+
+    renderProgress(state.tasks);
+
+    if (state.tasks.every(t => t.completed)) {
+      handleAllComplete();
+      return;
+    }
+
+    try {
+      await postAction({
+        action: 'complete_task',
+        session_id: state.session.session_id,
+        sort_order: task.sort_order
+      });
+    } catch (err) {
+      console.warn('complete_task POST failed:', err);
+    }
+  }
+
+  async function handleAllComplete() {
+    const content = $('content');
+    content.innerHTML = '<div class="complete-state">' +
+      '<div class="big">&#10003;</div>' +
+      '<p class="headline">All done!</p>' +
+      '<p>Great work.</p>' +
+      '</div>';
+
+    try {
+      await postAction({
+        action: 'complete_session',
+        session_id: state.session.session_id
+      });
+      localStorage.removeItem(CACHE_KEY);
+    } catch (err) {
+      console.warn('complete_session POST failed:', err);
+    }
+  }
+
+  function renderCarrySummary(tasks) {
+    const carries = tasks.filter(t => t.carry_note && t.carry_note.trim());
+    const el = $('carry-summary');
+    if (carries.length === 0) { el.hidden = true; return; }
+
+    el.hidden = false;
+    el.innerHTML = '<h2>Carry Notes</h2>';
+    for (const t of carries) {
+      const item = document.createElement('div');
+      item.className = 'carry-item';
+      const strong = document.createElement('strong');
+      strong.textContent = t.zone + ': ';
+      item.appendChild(strong);
+      item.appendChild(document.createTextNode(t.carry_note));
+      el.appendChild(item);
+    }
+  }
+
+  function showEmptyState() {
+    $('content').hidden = false;
+    $('content').innerHTML = '<div class="empty-state"><p>Nothing planned yet.</p></div>';
+    $('progress-bar').style.width = '0%';
+    $('progress-label').textContent = '';
+    $('carry-summary').hidden = true;
+  }
+
+  function showError(msg) {
+    $('content').hidden = false;
+    $('content').innerHTML = '<div class="error-state"><p>' + msg + '</p></div>';
+  }
+
+  function showCompletionState() {
+    $('content').innerHTML = '<div class="complete-state">' +
+      '<div class="big">&#10003;</div>' +
+      '<p class="headline">All done!</p>' +
+      '<p>Great work.</p>' +
+      '</div>';
+  }
+
+  function hideLoading() {
+    $('loading').hidden = true;
+  }
+
+  function saveCache(data) {
+    try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch (_) {}
+  }
+
+  function loadCache() {
+    try {
+      const raw = localStorage.getItem(CACHE_KEY);
+      return raw ? JSON.parse(raw) : null;
+    } catch (_) { return null; }
+  }
+</script>
+</body>
+</html>
