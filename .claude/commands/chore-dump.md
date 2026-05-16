@@ -18,9 +18,17 @@ Detect session mode from the text:
 
 ---
 
-## Step 2 — Extract tasks
+## Step 2 — Detect session mode and extract tasks
 
-Pull out every discrete task mentioned. Apply these rules:
+**Session mode:**
+- If the transcript contains "new session" → always start fresh (replaces whatever is in the app)
+- Otherwise → fetch the existing active tasks first using a GET request:
+  ```bash
+  curl -s "https://script.google.com/macros/s/AKfycbw1D0d7ZWbNowpXZpuvmz2VFbZpBlo0leDdfjyUgmc2sNgOnmNXBNQWcDz1ia17JzxsKw/exec?action=get_active"
+  ```
+  Combine any existing incomplete tasks with the new ones from the transcript, re-sequence them all together, then post as a new session.
+
+**Extract tasks from the transcript:**
 - Ignore filler words ("um", "uh", "like", "yeah", "you know")
 - Collapse duplicates — if the same task is mentioned twice, list it once
 - Ignore non-task content (thinking out loud, asides, greetings)
@@ -70,29 +78,36 @@ Any item picked up in one zone and dropped in another should be noted as a carry
 
 ## Step 4 — Build the task list
 
-Produce a JSON array of tasks:
+Produce the full payload object:
 
 ```json
-[
-  {
-    "task": "Strip Christo's bed",
-    "zone": "Christo's Room",
-    "sort_order": 7,
-    "carry_note": "Carry linen → Laundry"
-  },
-  {
-    "task": "Start bed linen wash",
-    "zone": "Laundry",
-    "sort_order": 9
-  }
-]
+{
+  "action": "new_session",
+  "date": "2026-05-16",
+  "tasks": [
+    {
+      "zone": "Christo's Room",
+      "task": "Strip Christo's bed",
+      "carry_note": "Carry linen → Laundry",
+      "sort_order": 7
+    },
+    {
+      "zone": "Laundry",
+      "task": "Start bed linen wash",
+      "carry_note": "",
+      "sort_order": 9
+    }
+  ]
+}
 ```
 
-Fields:
-- `task` — clean imperative string
-- `zone` — must match one of the zone names from the table above exactly
-- `sort_order` — integer, sequential across all tasks in route order
-- `carry_note` — optional string, only when something needs to be carried to another zone
+Fields (all required):
+- `action` — always `"new_session"`
+- `date` — today's date as a string (YYYY-MM-DD)
+- `tasks[].zone` — must match one of the zone names from the table above exactly
+- `tasks[].task` — clean imperative string
+- `tasks[].carry_note` — string, use `""` if nothing to carry
+- `tasks[].sort_order` — integer, sequential across all tasks in route order
 
 ---
 
@@ -122,29 +137,22 @@ Ask the user to confirm the list looks right before pushing. If they say yes or 
 
 ## Step 6 — Push to the Chore Router app
 
-Use the Bash tool to POST the task list to the Apps Script backend:
+Use the Bash tool to POST the payload to the Apps Script backend. Write the JSON to a temp file first to avoid shell escaping issues:
 
 ```bash
+cat > /tmp/chore_payload.json << 'PAYLOAD'
+{ ...the full JSON payload from Step 4... }
+PAYLOAD
+
 curl -s -L -X POST \
   -H "Content-Type: text/plain" \
-  -d '<JSON_PAYLOAD>' \
+  --data-binary @/tmp/chore_payload.json \
   "https://script.google.com/macros/s/AKfycbw1D0d7ZWbNowpXZpuvmz2VFbZpBlo0leDdfjyUgmc2sNgOnmNXBNQWcDz1ia17JzxsKw/exec"
 ```
 
-The full payload JSON:
-```json
-{
-  "action": "create_session",
-  "tasks": [ ... ]
-}
-```
+**If the POST succeeds** (response contains `"success":true`): tell Costa the tasks are live in the Chore Router app and open the app to check.
 
-(Use `append_tasks` instead of `create_session` if mode is append.)
-
-**If the POST succeeds** (response contains `success: true` or `session_id`): tell the user the tasks are live in the Chore Router app.
-
-**If the POST returns an error or unknown action**: the Apps Script doesn't yet support this endpoint. Tell the user:
-> The Chore Router backend needs a one-time update to accept new task sessions. The organised task list is shown above. See `apps-script-handler.gs` in the repo for the code to add to your Apps Script — paste it in and redeploy, then this will push automatically next time.
+**If the POST returns an error**: show the error text, display the full organised task list so nothing is lost, and ask Costa what to do.
 
 ---
 
