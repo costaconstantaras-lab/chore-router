@@ -1,45 +1,50 @@
 /**
- * Chore Router — Apps Script backend additions
+ * Chore Router — Apps Script additions
  *
- * Add these cases to your existing doPost(e) function,
- * inside the switch/if block that checks `action`.
+ * HOW TO USE:
+ * 1. Open your existing Apps Script project at script.google.com
+ * 2. Copy the three functions below (createSession_, appendTasks_, jsonResponse_)
+ *    and paste them at the bottom of your existing script file.
+ * 3. Inside your existing doPost(e) function, find where you handle actions
+ *    (the if/else or switch that checks action === 'complete_task' etc.)
+ *    and add the two new blocks marked "ADD THIS" below.
+ * 4. Update TASKS_SHEET_NAME to match your actual sheet tab name.
+ * 5. Redeploy: Deploy → Manage Deployments → select your deployment → Edit → new version → Deploy.
  *
- * IMPORTANT: Update SHEET_NAME and column indices below to match
- * your actual Google Sheet tab name and layout.
- *
- * Assumed column order (1-indexed):
- *   A=session_id, B=task, C=zone, D=completed, E=sort_order, F=carry_note
- *
- * After pasting this in, click Deploy → Manage Deployments →
- * create a New Deployment (or update the existing one) and copy
- * the new URL back into index.html and chore-dump.md.
+ * Column order assumed (1-indexed):
+ *   A=session_id  B=task  C=zone  D=completed  E=sort_order  F=carry_note
  */
 
-var TASKS_SHEET_NAME = 'Tasks';      // <-- update if your tab is named differently
-var SESSION_SHEET_NAME = 'Sessions'; // <-- update if you track sessions separately
-                                     //     (or remove if sessions are in the Tasks sheet)
+var TASKS_SHEET_NAME = 'sessions';
 
-// ─── ADD THESE CASES TO YOUR doPost HANDLER ────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// ADD THIS block inside your existing doPost(e) function, alongside your
+// existing action handlers (complete_task, complete_session, etc.)
+// ─────────────────────────────────────────────────────────────────────────────
 
-// case 'create_session':
-if (action === 'create_session') {
-  var result = createSession_(payload.tasks);
-  return jsonResponse(result);
+function doPost_newActionsSnippet(e) {
+  // NOTE: This is a standalone function only so the file parses without errors.
+  // Copy the contents of this function body into your real doPost(e).
+
+  var payload = JSON.parse(e.postData.contents);
+  var action = payload.action;
+
+  if (action === 'create_session') {
+    return jsonResponse_(createSession_(payload.tasks));
+  }
+
+  if (action === 'append_tasks') {
+    return jsonResponse_(appendTasks_(payload.tasks));
+  }
 }
 
-// case 'append_tasks':
-if (action === 'append_tasks') {
-  var result = appendTasks_(payload.tasks);
-  return jsonResponse(result);
-}
-
-// ─── HELPER FUNCTIONS (add outside doPost) ──────────────────────────────────
+// ─────────────────────────────────────────────────────────────────────────────
+// PASTE THESE three functions at the bottom of your Apps Script file
+// ─────────────────────────────────────────────────────────────────────────────
 
 function createSession_(tasks) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(TASKS_SHEET_NAME);
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TASKS_SHEET_NAME);
 
-  // Clear all existing task rows (keep header row 1)
   var lastRow = sheet.getLastRow();
   if (lastRow > 1) {
     sheet.deleteRows(2, lastRow - 1);
@@ -50,9 +55,9 @@ function createSession_(tasks) {
   tasks.forEach(function(task) {
     sheet.appendRow([
       sessionId,
-      task.task || '',
-      task.zone || '',
-      false,                    // completed
+      task.task      || '',
+      task.zone      || '',
+      false,
       task.sort_order || 0,
       task.carry_note || ''
     ]);
@@ -62,10 +67,8 @@ function createSession_(tasks) {
 }
 
 function appendTasks_(tasks) {
-  var ss = SpreadsheetApp.getActiveSpreadsheet();
-  var sheet = ss.getSheetByName(TASKS_SHEET_NAME);
+  var sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(TASKS_SHEET_NAME);
 
-  // Reuse the current session_id from the last row, or create a new one
   var lastRow = sheet.getLastRow();
   var sessionId;
   if (lastRow > 1) {
@@ -74,11 +77,9 @@ function appendTasks_(tasks) {
     sessionId = 'session_' + new Date().getTime();
   }
 
-  // Offset sort_order so appended tasks come after existing ones
   var maxSortOrder = 0;
   if (lastRow > 1) {
-    var sortOrders = sheet.getRange(2, 5, lastRow - 1, 1).getValues();
-    sortOrders.forEach(function(row) {
+    sheet.getRange(2, 5, lastRow - 1, 1).getValues().forEach(function(row) {
       if (row[0] > maxSortOrder) maxSortOrder = row[0];
     });
   }
@@ -86,8 +87,8 @@ function appendTasks_(tasks) {
   tasks.forEach(function(task) {
     sheet.appendRow([
       sessionId,
-      task.task || '',
-      task.zone || '',
+      task.task      || '',
+      task.zone      || '',
       false,
       maxSortOrder + (task.sort_order || 0),
       task.carry_note || ''
@@ -97,7 +98,7 @@ function appendTasks_(tasks) {
   return { success: true, session_id: sessionId, tasks_added: tasks.length };
 }
 
-function jsonResponse(data) {
+function jsonResponse_(data) {
   return ContentService
     .createTextOutput(JSON.stringify(data))
     .setMimeType(ContentService.MimeType.JSON);
