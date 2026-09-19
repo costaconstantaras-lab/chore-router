@@ -17,6 +17,9 @@ How the walk is built. There is no fixed lap; the app carries the house as a gra
 3. If a job carries something to another room, go there next and do that room while you're in it. The model writes carry notes as `Carry <thing> → <Zone>` so the router can read the destination.
 4. If a job in the current room is waiting on something elsewhere, go and do that first, then come back.
 5. A job that needs another done first waits until it is. Nobody walks back for a prerequisite.
+6. A room that is cheap to reach now but dear from anywhere else (the spare toilet off the laundry, the garden off the bathroom) is taken now rather than left for a long walk back.
+
+Two guards against the model filing a chore in the wrong room. When the chore's own words name exactly one room ("fold on the couch", "the shelf in the living room"), the words win over the model's zone. And a chore can be moved afterwards: say so in a dictation ("the folding is a lounge job") or use Edit mode, where every chore gets a room picker.
 
 The Apps Script build still uses the older fixed zone order and does none of steps 2 to 5. The artifact is the reference; port when needed.
 

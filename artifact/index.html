@@ -149,6 +149,20 @@
     padding: 18px 16px 6px;
   }
   .zone-header.tappable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .zone-count { float: right; font-weight: 500; letter-spacing: 0.04em; text-transform: none; color: var(--ink-muted); }
+  .task-zone {
+    display: none;
+    margin-top: 6px;
+    max-width: 100%;
+    font: inherit;
+    font-size: 13px;
+    color: var(--ink-soft);
+    background: var(--bg-raised);
+    border: 1px solid var(--line-strong);
+    border-radius: 8px;
+    padding: 4px 8px;
+  }
+  body.editing .task-zone { display: block; }
   .zone-header.start { color: var(--accent); }
   .start-mark {
     display: inline-block;
@@ -622,6 +636,14 @@
       const header = document.createElement('div');
       header.className = 'zone-header';
       header.textContent = zone;
+      const left = zoneTasks.filter(t => !t.completed).length;
+      if (zoneTasks.length > 1) {
+        const count = document.createElement('span');
+        count.className = 'zone-count';
+        count.textContent = left ? left + ' to do' : 'done';
+        header.appendChild(document.createTextNode(' '));
+        header.appendChild(count);
+      }
       if (ZONE_NAMES.includes(zone) && zone !== 'Errands') {
         header.classList.add('tappable');
         header.setAttribute('role', 'button');
@@ -705,6 +727,25 @@
       main.appendChild(carry);
     }
 
+    // Edit mode: move a chore to another room without re-dictating.
+    const mover = document.createElement('select');
+    mover.className = 'task-zone';
+    mover.id = 'zone-' + task.task_id;
+    mover.setAttribute('aria-label', 'Room for ' + task.task);
+    for (const z of ZONE_NAMES) {
+      const opt = document.createElement('option');
+      opt.value = z; opt.textContent = z; opt.selected = z === task.zone;
+      mover.appendChild(opt);
+    }
+    if (!ZONE_NAMES.includes(task.zone)) {
+      const opt = document.createElement('option');
+      opt.value = task.zone; opt.textContent = task.zone; opt.selected = true;
+      mover.appendChild(opt);
+    }
+    mover.addEventListener('click', e => e.stopPropagation());
+    mover.addEventListener('change', e => { e.stopPropagation(); moveTask(task.task_id, mover.value); });
+    main.appendChild(mover);
+
     const remove = document.createElement('button');
     remove.className = 'task-remove';
     remove.type = 'button';
@@ -741,6 +782,16 @@
     save(next);
   }
 
+  function moveTask(id, zone) {
+    if (!doc || readOnly) return;
+    const next = clone(doc);
+    const t = next.tasks.find(x => x.task_id === id);
+    if (!t || !zone || t.zone === zone) return;
+    t.zone = zone;
+    next.tasks = resequence(next.tasks, next.start_zone);
+    save(next);
+  }
+
   function setStartZone(zone) {
     if (!doc || readOnly) return;
     const next = clone(doc);
@@ -770,7 +821,7 @@
 
   function applyPlan(current, plan) {
     let next = current ? clone(current) : freshDoc();
-    const changes = { mode: plan.mode, added: [], completed: [], removed: [], start_zone: '', note: plan.note || '' };
+    const changes = { mode: plan.mode, added: [], completed: [], removed: [], moved: [], start_zone: '', note: plan.note || '' };
 
     if (plan.mode === 'new') {
       next = freshDoc();
@@ -785,6 +836,11 @@
     for (const t of next.tasks) {
       if (complete.has(t.task_id) && !t.completed) { t.completed = true; changes.completed.push(t.task); }
     }
+    for (const m of plan.move || []) {
+      const t = next.tasks.find(x => x.task_id === m.id);
+      const zone = normaliseZone(m.zone);
+      if (t && zone && zone !== t.zone) { t.zone = zone; changes.moved.push({ task: t.task, zone }); }
+    }
     next.tasks = next.tasks.filter(t => {
       if (remove.has(t.task_id)) { changes.removed.push(t.task); return false; }
       return true;
@@ -797,7 +853,7 @@
       const key = normalise(text);
       if (keys.has(key)) return;
       keys.add(key);
-      const zone = normaliseZone(a.zone);
+      const zone = zoneFromWords(text) || normaliseZone(a.zone);
       next.tasks.push({
         task_id: newId(),
         zone,
@@ -879,9 +935,18 @@
       if (!zone && comeBackTo && zones.has(comeBackTo)) { zone = comeBackTo; comeBackTo = ''; }
 
       if (!zone) {
+        // Nearest room wins, with two nudges: a room with more to do pulls a
+        // little harder, and a room that is cheap to reach now but dear from
+        // anywhere else (the spare toilet off the laundry) is taken now rather
+        // than left for a long walk back later.
+        const otherZones = [...new Set(remaining.map(t => t.zone))];
         let best = Infinity;
         for (const [z, ts] of zones) {
-          const score = walk(here, z) - Math.min(ts.length, 5) * 0.2;
+          const now = walk(here, z);
+          let later = Infinity;
+          for (const o of otherZones) if (o !== z) later = Math.min(later, walk(ZONE_NODE[o] || here, z));
+          const regret = later === Infinity ? 0 : Math.max(0, later - now);
+          const score = now - Math.min(ts.length, 5) * 0.2 - regret;
           if (score < best) { best = score; zone = z; }
         }
       }
@@ -935,6 +1000,32 @@
     return i === -1 ? ZONE_NAMES.length : i;
   }
 
+  // Safety net for the model: when the chore text names a room outright, the
+  // words win. Only applies when exactly one room is named, so "take the
+  // cushions from the lounge to the verandah" is left to the model's judgement.
+  const ROOM_WORDS = [
+    ["Sofia's Room",           /\bsofia'?s?\s+(room|bed|bedroom|cupboard|wardrobe|desk)\b/],
+    ["Christo's Room",         /\bchristo'?s?\s+(room|bed|bedroom|cupboard|wardrobe|desk)\b/],
+    ['My Room',                /\bmy\s+(room|bed|bedroom|wardrobe|desk)\b/],
+    ['Lounge',                 /\b(couch|sofa|lounge)\b/],
+    ['Kitchen / Living',       /\b(kitchen|living\s*(room|area)?|dining|dishwasher|fridge|freezer|oven|stove|cooktop|pantry|microwave|bench(top)?s?)\b/],
+    ['Spare Toilet',           /\b(spare|second|separate|other)\s+toilet\b/],
+    ['Bathroom',               /\b(bathroom|shower|bath|basin|vanity)\b/],
+    ['Hallway',                /\b(hallway|hall|entrance|entry|corridor|coat\s*hooks?)\b/],
+    ['Porch / Front Exterior', /\b(porch|letterbox|mailbox|front\s+(door|step|steps|garden|yard))\b/],
+    ['Rear Verandah',          /\b(verandah|veranda|deck|back\s+door)\b/],
+    ['Garden',                 /\b(garden|lawn|weeds?|hose|clothes\s*line|compost|tomatoes|herbs)\b/],
+    ['Shed',                   /\bshed\b/],
+    ['Bins',                   /\b(wheelie|bins?\s+(out|in|to the (street|kerb|curb))|bin\s*night)\b/],
+    ['Laundry',                /\b(the\s+laundry|laundry\s+(room|floor|sink|door)|washing\s+machine|dryer|tumble|ironing)\b/]
+  ];
+  function zoneFromWords(text) {
+    const t = ' ' + String(text || '').toLowerCase() + ' ';
+    const hits = new Set();
+    for (const [zone, re] of ROOM_WORDS) if (re.test(t)) hits.add(zone);
+    return hits.size === 1 ? [...hits][0] : '';
+  }
+
   function normaliseZone(zone) {
     const z = String(zone || '').trim();
     if (ZONE_NAMES.includes(z)) return z;
@@ -965,7 +1056,7 @@
       'Dictation is messy: filler words, repeats, self-corrections, asides. Work out what he means.',
       '',
       'Reply with only a JSON object of this exact shape:',
-      '{"mode":"append","start_zone":"","add":[{"task":"Clean oven","zone":"Kitchen / Living","carry_note":"","priority":"","due":"","after":""}],"complete":["id1"],"remove":[],"note":""}',
+      '{"mode":"append","start_zone":"","add":[{"task":"Clean oven","zone":"Kitchen / Living","carry_note":"","priority":"","due":"","after":""}],"complete":["id1"],"remove":[],"move":[{"id":"id2","zone":"Lounge"}],"note":""}',
       '',
       'How the list gets ordered (you do not order it, but you feed the router):',
       '- The router knows the walking distances between rooms. From wherever he is it goes to the nearest room with something ready to do, does everything there, and moves on.',
@@ -996,6 +1087,8 @@
       '- complete: ids of existing tasks he says are done ("did the oven", "bins are out", "bathroom is sorted"). Match on meaning, not wording.',
       '  If he says something is done and it is not on the list, do not add it.',
       '- remove: ids of tasks he wants dropped ("forget the oven", "don\'t worry about the shed"). Only when clearly a removal, never a guess.',
+      '- move: existing tasks he says are filed in the wrong room ("the folding is a lounge job", "that shelf is in the living room"), with the id and the correct zone.',
+      '- zone: where the work physically happens, and when the words name a room, that room wins over the activity: "fold on the couch" is Lounge, "sweep the laundry floor" is Laundry, "Sofia\'s laundry to the machine" starts in Sofia\'s Room. "Living room" means the living end of Kitchen / Living, not the Lounge. "The toilets" is two tasks: one in Bathroom, one in Spare Toilet.',
       '- note: one short line when something was ambiguous or you made a call (for example which room). Otherwise "".',
       '',
       'Zones and what belongs in them:',
@@ -1028,6 +1121,7 @@
       })),
       complete: list(p.complete).map(String),
       remove: list(p.remove).map(String),
+      move: list(p.move).filter(m => m && typeof m === 'object').map(m => ({ id: String(m.id || ''), zone: String(m.zone || '') })),
       note: String(p.note || '')
     };
   }
@@ -1138,7 +1232,7 @@
 
   function saveDraft(v) { try { localStorage.setItem(DRAFT_KEY, v); } catch (_) {} }
 
-  function currentTier() { return $('tier').classList.contains('careful') ? 'complex' : 'quick'; }
+  function currentTier() { return $('tier').classList.contains('careful') ? 'default' : 'quick'; }
   function toggleTier() {
     const el = $('tier');
     const careful = !el.classList.contains('careful');
@@ -1223,6 +1317,7 @@
     if (ch.start_zone) items.push(li('Walk starts in ', ch.start_zone, true));
     for (const a of ch.added) items.push(li('+ ', a.task, true, a.zone));
     for (const c of ch.completed) items.push(li('✓ ' + c));
+    for (const m of ch.moved || []) items.push(li('↷ ', m.task, true, m.zone));
     for (const r of ch.removed) items.push(li('− ' + r));
     if (!items.length) items.push(li('Nothing to change. Already on top of it.'));
 
@@ -1230,6 +1325,7 @@
     if (ch.added.length) counts.push(ch.added.length + ' added');
     if (ch.completed.length) counts.push(ch.completed.length + ' done');
     if (ch.removed.length) counts.push(ch.removed.length + ' dropped');
+    if ((ch.moved || []).length) counts.push(ch.moved.length + ' moved');
 
     const el = $('changes');
     el.classList.remove('error');

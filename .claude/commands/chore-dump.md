@@ -35,6 +35,7 @@ The transcript is messy: filler, repeats, corrections, asides. Work out what Cos
 - **add** — genuinely new tasks. Short imperatives, UK English ("Clean oven", "Change Christo's sheets"). One entry per physical job. Don't add anything already on the list. If something moves between rooms, put the task in the pickup zone with `carry_note` like `"Carry linen → Laundry"`, and add a task in the destination only if there's work there. Set `start_early: true` on anything that runs unattended and should kick off first (washing machine, dishwasher, soaking).
 - **complete** — ids of existing tasks he says are done. Match on meaning. If it's not on the list, don't add it.
 - **remove** — ids he clearly wants dropped ("forget the oven"). Never a guess.
+- **move** — existing tasks he says are in the wrong room, with the id and the right zone. Where the chore's words name a room, that room wins over the activity: "fold on the couch" is Lounge, "living room" is the living end of Kitchen / Living, "the toilets" is two tasks in two rooms.
 
 Zones (must match exactly):
 
