@@ -4,6 +4,14 @@ Talk at your phone, get a chore list in walking order.
 
 Open the app, tap the box, dictate whatever's in your head. New chores get added in the order you'd actually walk the house. Anything you say you've done gets ticked off. Anything you say to forget gets dropped. Tap a row to tick it manually.
 
+## Two builds, same brain
+
+**`artifact/index.html` is the live one.** It is published as a Claude artifact at https://claude.ai/artifact/B1Lwp7aPAe9BgZEbcA7cZE and has no backend at all: the list lives in the artifact's own store (`list/current`, finished lists archived under `history/`), and dictation goes straight from the page to Claude on your own account. Open it signed in, add it to your home screen, done. To change it, edit the file and republish to the same URL from Claude Code.
+
+The Quick / Careful toggle under the box picks the model tier. Quick answers in a couple of seconds and is right for a morning walk-through. Careful thinks first, for a long or tangled dump.
+
+**`index.html` plus `apps-script/Code.gs` is the self-hosted version** on Google Sheets and Apps Script, for when you want the sheet as a visible record or want it outside claude.ai. The rest of this README is about that build. The routing rules, the zone table and the prompt are the same in both, so a change to the house goes in both places.
+
 ## How it fits together
 
 ```

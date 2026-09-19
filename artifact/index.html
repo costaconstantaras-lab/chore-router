@@ -1,0 +1,1079 @@
+<title>Chore Router</title>
+<style>
+  :root {
+    --bg: #f3efe9;
+    --bg-raised: #ffffff;
+    --line: #e1d9ce;
+    --line-strong: #c9bda9;
+    --ink: #1f1a16;
+    --ink-soft: #5b4d40;
+    --ink-muted: #8a7a68;
+    --accent: #b8764a;
+    --accent-ink: #ffffff;
+    --danger: #b9513f;
+    --tick-idle: #c9bda9;
+    --shadow: 0 12px 32px rgba(60, 40, 20, 0.16);
+    --radius: 14px;
+    --composer-h: 96px;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1a1614;
+      --bg-raised: #241f1b;
+      --line: #2e2825;
+      --line-strong: #4a3f36;
+      --ink: #f0ebe3;
+      --ink-soft: #c8b89a;
+      --ink-muted: #8b7355;
+      --accent: #c8956c;
+      --accent-ink: #1a1614;
+      --danger: #d47a68;
+      --tick-idle: #4a3f36;
+      --shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1a1614;
+    --bg-raised: #241f1b;
+    --line: #2e2825;
+    --line-strong: #4a3f36;
+    --ink: #f0ebe3;
+    --ink-soft: #c8b89a;
+    --ink-muted: #8b7355;
+    --accent: #c8956c;
+    --accent-ink: #1a1614;
+    --danger: #d47a68;
+    --tick-idle: #4a3f36;
+    --shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+
+  html, body { height: 100%; }
+  body {
+    margin: 0;
+    background: var(--bg);
+    color: var(--ink);
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    font-size: 16px;
+    line-height: 1.4;
+    -webkit-font-smoothing: antialiased;
+  }
+
+  button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+    touch-action: manipulation;
+    -webkit-tap-highlight-color: transparent;
+  }
+  button:focus-visible, textarea:focus-visible, [tabindex]:focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+
+  /* ---------- header ---------- */
+
+  #header {
+    position: sticky;
+    top: env(safe-area-inset-top, 0px);
+    z-index: 10;
+    background: var(--bg);
+    padding: 16px 16px 12px;
+    border-bottom: 1px solid var(--line);
+  }
+  #header-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    margin-bottom: 12px;
+  }
+  h1 {
+    margin: 0;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    color: var(--accent);
+    text-transform: uppercase;
+  }
+  .header-actions { display: flex; gap: 6px; }
+  .chip {
+    font-size: 13px;
+    font-weight: 600;
+    color: var(--ink-muted);
+    padding: 6px 10px;
+    border-radius: 999px;
+    border: 1px solid var(--line-strong);
+    min-height: 32px;
+    background: var(--bg);
+  }
+  .chip:active { background: var(--bg-raised); }
+  .chip.on { color: var(--accent); border-color: var(--accent); }
+  .chip:disabled { opacity: 0.4; }
+
+  #progress-track {
+    height: 6px;
+    background: var(--line);
+    border-radius: 3px;
+    overflow: hidden;
+    margin-bottom: 8px;
+  }
+  #progress-bar {
+    height: 100%;
+    width: 0%;
+    background: var(--accent);
+    border-radius: 3px;
+    transition: width 0.3s ease;
+  }
+  #progress-label {
+    font-size: 13px;
+    color: var(--ink-muted);
+    min-height: 16px;
+    font-variant-numeric: tabular-nums;
+  }
+
+  /* ---------- list ---------- */
+
+  #content { padding-bottom: calc(var(--composer-h) + 24px); }
+
+  .zone-header {
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.12em;
+    color: var(--ink-muted);
+    text-transform: uppercase;
+    padding: 18px 16px 6px;
+  }
+
+  .task-row {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    min-height: 56px;
+    padding: 15px 16px;
+    border-bottom: 1px solid var(--line);
+    user-select: none;
+    -webkit-user-select: none;
+    transition: background 0.15s;
+  }
+  .task-row:active { background: var(--bg-raised); }
+
+  .task-tick {
+    flex: none;
+    width: 22px;
+    height: 22px;
+    margin-top: 1px;
+    border: 2px solid var(--tick-idle);
+    border-radius: 50%;
+    transition: border-color 0.2s, background 0.2s;
+  }
+  .task-main { flex: 1; min-width: 0; }
+  .task-label { display: block; }
+  .task-carry {
+    display: block;
+    margin-top: 3px;
+    font-size: 13px;
+    color: var(--accent);
+  }
+  .task-flag {
+    display: inline-block;
+    margin-left: 6px;
+    font-size: 11px;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    color: var(--accent);
+    text-transform: uppercase;
+    vertical-align: 1px;
+  }
+  .task-flag.due { color: var(--danger); }
+
+  .task-row.completed .task-main { opacity: 0.4; }
+  .task-row.completed .task-tick { background: var(--accent); border-color: var(--accent); }
+  .task-row.completed .task-label { text-decoration: line-through; }
+
+  .task-remove {
+    flex: none;
+    display: none;
+    width: 32px;
+    height: 32px;
+    margin: -5px -6px -5px 0;
+    border-radius: 50%;
+    color: var(--danger);
+    font-size: 22px;
+    line-height: 32px;
+    text-align: center;
+  }
+  body.editing .task-remove { display: block; }
+
+  .state {
+    padding: 56px 24px;
+    text-align: center;
+    color: var(--ink-muted);
+  }
+  .state p { font-size: 17px; margin: 0 0 8px; }
+  .state .big { font-size: 40px; margin-bottom: 16px; color: var(--accent); }
+  .state .headline { font-size: 22px; color: var(--ink); font-weight: 600; text-wrap: balance; }
+  .state .hint { font-size: 14px; max-width: 34ch; margin-left: auto; margin-right: auto; }
+  .state .primary { margin-top: 20px; }
+
+  .primary {
+    background: var(--accent);
+    color: var(--accent-ink);
+    font-weight: 700;
+    padding: 12px 20px;
+    border-radius: 999px;
+    min-height: 44px;
+  }
+  .primary:disabled { opacity: 0.4; }
+
+  /* ---------- change summary ---------- */
+
+  #changes {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(var(--composer-h) + 12px);
+    z-index: 20;
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-radius: var(--radius);
+    padding: 14px 16px;
+    box-shadow: var(--shadow);
+    transform: translateY(12px);
+    opacity: 0;
+    pointer-events: none;
+    transition: transform 0.2s, opacity 0.2s;
+  }
+  #changes.show { transform: none; opacity: 1; pointer-events: auto; }
+  #changes.error { border-color: var(--danger); }
+  #changes .title {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--accent);
+    margin-bottom: 8px;
+  }
+  #changes.error .title { color: var(--danger); }
+  #changes .title-actions { display: flex; gap: 10px; align-items: center; }
+  #changes .undo { font-size: 13px; letter-spacing: 0; text-transform: none; color: var(--ink-soft); text-decoration: underline; }
+  #changes .close { color: var(--ink-muted); font-size: 20px; padding: 0 4px; line-height: 1; }
+  #changes ul { list-style: none; margin: 0; padding: 0; }
+  #changes li { font-size: 14px; color: var(--ink-soft); padding: 3px 0; }
+  #changes li b { color: var(--ink); font-weight: 600; }
+  #changes li .zone { color: var(--ink-muted); }
+  #changes .note { margin-top: 8px; font-size: 13px; color: var(--ink-muted); font-style: italic; }
+
+  /* ---------- composer ---------- */
+
+  #composer {
+    position: fixed;
+    left: 0;
+    right: 0;
+    bottom: 0;
+    z-index: 15;
+    background: var(--bg);
+    border-top: 1px solid var(--line);
+    padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 10px);
+  }
+  #composer-inner {
+    display: flex;
+    align-items: flex-end;
+    gap: 6px;
+    background: var(--bg-raised);
+    border: 1px solid var(--line);
+    border-radius: 22px;
+    padding: 6px 6px 6px 14px;
+  }
+  #composer-inner:focus-within { border-color: var(--line-strong); }
+  #dump {
+    flex: 1;
+    min-width: 0;
+    background: none;
+    border: 0;
+    outline: none;
+    color: var(--ink);
+    font: inherit;
+    font-size: 16px;
+    line-height: 1.4;
+    resize: none;
+    max-height: 40vh;
+    padding: 8px 0;
+    margin: 0;
+  }
+  #dump::placeholder { color: var(--ink-muted); }
+  #dump:disabled { opacity: 0.6; }
+
+  .icon-btn {
+    flex: none;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: var(--ink-muted);
+  }
+  .icon-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  .icon-btn:active { background: var(--line); }
+  #mic.listening { color: var(--danger); animation: pulse 1.2s ease-in-out infinite; }
+  #send { background: var(--accent); color: var(--accent-ink); }
+  #send:disabled { background: var(--line); color: var(--ink-muted); }
+  #send.busy svg { animation: spin 0.8s linear infinite; }
+
+  #composer-foot {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 6px 0 14px;
+    min-height: 24px;
+  }
+  #composer-hint { font-size: 12px; color: var(--ink-muted); flex: 1; min-width: 0; }
+  #tier {
+    font-size: 12px;
+    color: var(--ink-muted);
+    padding: 2px 8px;
+    border-radius: 999px;
+    border: 1px solid var(--line);
+    white-space: nowrap;
+  }
+  #tier.careful { color: var(--accent); border-color: var(--accent); }
+
+  @keyframes pulse { 50% { opacity: 0.45; } }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after { animation: none !important; transition: none !important; }
+  }
+</style>
+
+<div id="header">
+  <div id="header-row">
+    <h1>Chore Router</h1>
+    <div class="header-actions">
+      <button class="chip" id="edit-btn" type="button">Edit</button>
+      <button class="chip" id="fresh-btn" type="button">Start fresh</button>
+    </div>
+  </div>
+  <div id="progress-track"><div id="progress-bar"></div></div>
+  <div id="progress-label"></div>
+</div>
+
+<div id="content">
+  <div class="state" id="boot-state">
+    <p class="headline">Waking up…</p>
+    <p class="hint">Connecting to your list.</p>
+  </div>
+</div>
+
+<div id="changes" role="status" aria-live="polite">
+  <div class="title">
+    <span id="changes-title">Updated</span>
+    <span class="title-actions">
+      <button class="undo" id="changes-undo" type="button" hidden>Undo</button>
+      <button class="close" id="changes-close" type="button" aria-label="Dismiss">×</button>
+    </span>
+  </div>
+  <ul id="changes-list"></ul>
+  <div class="note" id="changes-note" hidden></div>
+</div>
+
+<div id="composer">
+  <div id="composer-inner">
+    <textarea id="dump" rows="1" placeholder="What's on, or what's done?" autocapitalize="sentences" enterkeyhint="send"></textarea>
+    <button class="icon-btn" id="mic" type="button" aria-label="Dictate" hidden>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+    </button>
+    <button class="icon-btn" id="send" type="button" aria-label="Send" disabled>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg>
+    </button>
+  </div>
+  <div id="composer-foot">
+    <span id="composer-hint"></span>
+    <button id="tier" type="button" title="Quick answers in a couple of seconds. Careful thinks first.">Quick</button>
+  </div>
+</div>
+
+<script>
+  // =========================================================================
+  // House knowledge. The walk order is the router; Claude only picks zones.
+  // =========================================================================
+
+  const ZONES = [
+    { name: 'Porch / Front Exterior', hint: 'front door, letterbox, front steps, front garden' },
+    { name: 'Hallway',                hint: 'the corridor itself, coat hooks, inside of front door' },
+    { name: "Sofia's Room",           hint: "Sofia's bedroom" },
+    { name: 'Lounge',                 hint: 'couch, TV, lounge room' },
+    { name: 'Kitchen / Living',       hint: 'kitchen, dining, benches, oven, fridge, dishwasher, living area' },
+    { name: 'Bins',                   hint: 'bins out or in, recycling, compost, bin cleaning' },
+    { name: "Christo's Room",         hint: "Christo's bedroom" },
+    { name: 'My Room',                hint: "Costa's bedroom" },
+    { name: 'Laundry',                hint: 'washing machine, dryer, ironing, hanging out or bringing in washing' },
+    { name: 'Spare Toilet',           hint: 'the separate toilet' },
+    { name: 'Bathroom',               hint: 'shower, bath, basin, bathroom toilet' },
+    { name: 'Rear Verandah',          hint: 'back deck, outdoor table and chairs' },
+    { name: 'Garden',                 hint: 'lawn, weeds, plants, hose, clothesline' },
+    { name: 'Shed',                   hint: 'tools, storage' },
+    { name: 'Errands',                hint: 'anything away from the house: shops, post office, pharmacy' }
+  ];
+  const ZONE_NAMES = ZONES.map(z => z.name);
+
+  // =========================================================================
+  // State
+  // =========================================================================
+
+  const $ = id => document.getElementById(id);
+  const LIST_PATH = 'list/current';
+  const TIER_KEY = 'chore_router_tier';
+  const DRAFT_KEY = 'chore_router_draft';
+
+  let db = null;
+  let sample = null;
+  let listRef = null;
+  let doc = null;           // { session_id, started_at, updated_at, tasks: [] }
+  let previous = null;      // snapshot before the last dictation, for Undo
+  let editing = false;
+  let busy = false;
+  let writeChain = Promise.resolve();
+  let readOnly = false;
+
+  const use = name => (window.claude && typeof window.claude.use === 'function')
+    ? window.claude.use(name)
+    : Promise.resolve(null);
+
+  async function boot() {
+    bindComposer();
+    bindHeader();
+    setupMic();
+    restoreTier();
+    measureComposer();
+
+    db = await use('db');
+    if (!db) {
+      showState('Open this inside Claude.', 'The list lives in your Claude account. Open the link from the Claude app or claude.ai while signed in.');
+      setComposerEnabled(false);
+      return;
+    }
+    listRef = db.doc(LIST_PATH);
+    listRef.onSnapshot(snap => {
+      doc = snap.exists ? normaliseDoc(snap.data()) : null;
+      renderAll();
+    }, err => {
+      showError(err && err.code === 'revoked'
+        ? 'Access to the list changed. Reload to try again.'
+        : 'Lost touch with the list. Reload to reconnect.');
+    });
+
+    sample = await use('sample');
+    if (!sample) {
+      hint('Dictation needs the Claude app or claude.ai. You can still tick things off.');
+    }
+  }
+
+  function normaliseDoc(data) {
+    const tasks = Array.isArray(data.tasks) ? data.tasks : [];
+    return {
+      session_id: String(data.session_id || newId()),
+      started_at: String(data.started_at || ''),
+      updated_at: String(data.updated_at || ''),
+      tasks: tasks.map(t => ({
+        task_id: String(t.task_id || newId()),
+        zone: String(t.zone || ''),
+        task: String(t.task || ''),
+        carry_note: String(t.carry_note || ''),
+        completed: !!t.completed,
+        priority: t.priority === 'start' || t.priority === 'urgent' ? t.priority : '',
+        due: String(t.due || ''),
+        sort_order: Number(t.sort_order) || 0
+      })).sort((a, b) => a.sort_order - b.sort_order)
+    };
+  }
+
+  function tasks() { return doc ? doc.tasks : []; }
+
+  // =========================================================================
+  // Persistence: one document, one write at a time
+  // =========================================================================
+
+  function save(next) {
+    next.updated_at = new Date().toISOString();
+    doc = next;
+    renderAll();
+    writeChain = writeChain
+      .then(() => listRef.set(next))
+      .catch(err => {
+        if (err && err.code === 'invalid_argument' && !readOnly) {
+          readOnly = true;
+          showError('You can look but not change this list from here.');
+        } else if (err && err.code === 'quota_exceeded') {
+          showError('The store is full. Start fresh to clear old history.');
+        } else {
+          showError('That change did not save. Check your connection and try again.');
+        }
+      });
+    return writeChain;
+  }
+
+  function freshDoc() {
+    return { session_id: newId(), started_at: new Date().toISOString(), updated_at: '', tasks: [] };
+  }
+
+  // =========================================================================
+  // Rendering
+  // =========================================================================
+
+  function renderAll() {
+    renderProgress();
+    const content = $('content');
+    content.innerHTML = '';
+    const list = tasks();
+
+    if (!doc || list.length === 0) {
+      content.appendChild(stateNode(
+        'Nothing on the list.',
+        'Tap the box below and just talk. New chores, things you\'ve done, things to forget. It sorts itself out.'
+      ));
+      return;
+    }
+
+    if (list.every(t => t.completed)) {
+      const done = stateNode('All done.', 'House: 0. Costa: 1.', '&#10003;');
+      const btn = document.createElement('button');
+      btn.className = 'primary';
+      btn.type = 'button';
+      btn.textContent = 'Start a fresh list';
+      btn.addEventListener('click', startFresh);
+      done.appendChild(btn);
+      content.appendChild(done);
+    }
+
+    const zones = new Map();
+    for (const t of list) {
+      const key = t.priority === 'start' ? 'Kick off first' : t.priority === 'urgent' ? 'Time-bound' : t.zone;
+      if (!zones.has(key)) zones.set(key, []);
+      zones.get(key).push(t);
+    }
+    for (const [zone, zoneTasks] of zones) {
+      const section = document.createElement('section');
+      const header = document.createElement('div');
+      header.className = 'zone-header';
+      header.textContent = zone;
+      section.appendChild(header);
+      for (const task of zoneTasks) section.appendChild(buildTaskRow(task));
+      content.appendChild(section);
+    }
+  }
+
+  function stateNode(headline, hintText, big) {
+    const el = document.createElement('div');
+    el.className = 'state';
+    el.innerHTML = (big ? '<div class="big">' + big + '</div>' : '') +
+      '<p class="headline"></p><p class="hint"></p>';
+    el.querySelector('.headline').textContent = headline;
+    el.querySelector('.hint').textContent = hintText;
+    return el;
+  }
+
+  function showState(headline, hintText) {
+    const content = $('content');
+    content.innerHTML = '';
+    content.appendChild(stateNode(headline, hintText));
+  }
+
+  function renderProgress() {
+    const list = tasks();
+    const total = list.length;
+    const done = list.filter(t => t.completed).length;
+    const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+    $('progress-bar').style.width = pct + '%';
+    $('progress-label').textContent = total ? done + ' of ' + total + ' done' : '';
+  }
+
+  function buildTaskRow(task) {
+    const row = document.createElement('div');
+    row.className = 'task-row' + (task.completed ? ' completed' : '');
+    row.setAttribute('role', 'button');
+    row.setAttribute('tabindex', '0');
+    row.dataset.taskId = task.task_id;
+
+    const tick = document.createElement('span');
+    tick.className = 'task-tick';
+
+    const main = document.createElement('div');
+    main.className = 'task-main';
+    const label = document.createElement('span');
+    label.className = 'task-label';
+    label.textContent = task.task;
+    if (task.priority === 'start' || task.priority === 'urgent' || task.due) {
+      const flag = document.createElement('span');
+      flag.className = 'task-flag' + (task.due ? ' due' : '');
+      flag.textContent = task.due ? task.due : (task.priority === 'start' ? 'first' : 'soon');
+      label.appendChild(document.createTextNode(' '));
+      label.appendChild(flag);
+    }
+    main.appendChild(label);
+    if (task.zone && (task.priority === 'start' || task.priority === 'urgent')) {
+      const where = document.createElement('span');
+      where.className = 'task-carry';
+      where.textContent = task.zone + (task.carry_note ? ' · ' + task.carry_note : '');
+      main.appendChild(where);
+    } else if (task.carry_note) {
+      const carry = document.createElement('span');
+      carry.className = 'task-carry';
+      carry.textContent = task.carry_note;
+      main.appendChild(carry);
+    }
+
+    const remove = document.createElement('button');
+    remove.className = 'task-remove';
+    remove.type = 'button';
+    remove.setAttribute('aria-label', 'Remove ' + task.task);
+    remove.textContent = '×';
+    remove.addEventListener('click', e => { e.stopPropagation(); removeTask(task.task_id); });
+
+    row.append(tick, main, remove);
+    const toggle = () => toggleTask(task.task_id);
+    row.addEventListener('click', toggle);
+    row.addEventListener('keydown', e => {
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
+    });
+    return row;
+  }
+
+  // =========================================================================
+  // Task actions
+  // =========================================================================
+
+  function toggleTask(id) {
+    if (!doc || readOnly) return;
+    const next = clone(doc);
+    const t = next.tasks.find(x => x.task_id === id);
+    if (!t) return;
+    t.completed = !t.completed;
+    save(next);
+  }
+
+  function removeTask(id) {
+    if (!doc || readOnly) return;
+    const next = clone(doc);
+    next.tasks = next.tasks.filter(x => x.task_id !== id);
+    save(next);
+  }
+
+  async function startFresh() {
+    if (readOnly) return;
+    const list = tasks();
+    if (list.length && !list.every(t => t.completed)) {
+      if (!confirm('Start a fresh list? Anything not done gets left behind.')) return;
+    }
+    hideChanges();
+    setEditing(false);
+    if (doc && list.length) {
+      const archived = clone(doc);
+      try { await db.doc('history/' + archived.session_id).set(archived); } catch (_) {}
+    }
+    await save(freshDoc());
+  }
+
+  // =========================================================================
+  // Apply a plan (ported from the Apps Script backend, same rules)
+  // =========================================================================
+
+  function applyPlan(current, plan) {
+    let next = current ? clone(current) : freshDoc();
+    const changes = { mode: plan.mode, added: [], completed: [], removed: [], note: plan.note || '' };
+
+    if (plan.mode === 'new') {
+      next = freshDoc();
+    }
+
+    const complete = new Set(plan.complete);
+    const remove = new Set(plan.remove);
+    for (const t of next.tasks) {
+      if (complete.has(t.task_id) && !t.completed) { t.completed = true; changes.completed.push(t.task); }
+    }
+    next.tasks = next.tasks.filter(t => {
+      if (remove.has(t.task_id)) { changes.removed.push(t.task); return false; }
+      return true;
+    });
+
+    const keys = new Set(next.tasks.map(t => normalise(t.task)));
+    plan.add.forEach((a, i) => {
+      const text = String(a.task || '').trim();
+      if (!text) return;
+      const key = normalise(text);
+      if (keys.has(key)) return;
+      keys.add(key);
+      const zone = normaliseZone(a.zone);
+      next.tasks.push({
+        task_id: newId(),
+        zone,
+        task: text,
+        carry_note: String(a.carry_note || '').trim(),
+        completed: false,
+        priority: a.priority === 'start' || a.priority === 'urgent' ? a.priority : '',
+        due: String(a.due || '').trim().slice(0, 24),
+        sort_order: 100000 + i
+      });
+      changes.added.push({ task: text, zone });
+    });
+
+    next.tasks = resequence(next.tasks);
+    return { next, changes };
+  }
+
+  function resequence(list) {
+    const rank = t => t.priority === 'start' ? -2 : t.priority === 'urgent' ? -1 : zoneRank(t.zone);
+    const sorted = list.slice().sort((a, b) => (rank(a) - rank(b)) || (a.sort_order - b.sort_order));
+    sorted.forEach((t, i) => { t.sort_order = i + 1; });
+    return sorted;
+  }
+
+  function zoneRank(zone) {
+    const i = ZONE_NAMES.indexOf(zone);
+    return i === -1 ? ZONE_NAMES.length : i;
+  }
+
+  function normaliseZone(zone) {
+    const z = String(zone || '').trim();
+    if (ZONE_NAMES.includes(z)) return z;
+    const lower = z.toLowerCase();
+    return ZONE_NAMES.find(n => n.toLowerCase() === lower) ||
+      ZONE_NAMES.find(n => lower && (n.toLowerCase().includes(lower) || lower.includes(n.toLowerCase().split(' / ')[0]))) ||
+      'Hallway';
+  }
+
+  function normalise(text) {
+    return String(text).toLowerCase().replace(/[^a-z0-9 ]/g, '').replace(/\s+/g, ' ').trim();
+  }
+
+  // =========================================================================
+  // Dictation: transcript in, plan out, applied locally
+  // =========================================================================
+
+  function buildPrompt(transcript) {
+    const current = tasks().map(t => ({ id: t.task_id, zone: t.zone, task: t.task, done: t.completed }));
+    const now = new Date();
+    const when = now.toLocaleString('en-AU', { weekday: 'long', hour: 'numeric', minute: '2-digit' });
+
+    return [
+      "You turn Costa's spoken brain dumps about housework into changes to his chore list.",
+      'The house is at Collier Crescent, Brunswick West. It is ' + when + '.',
+      '',
+      'You get the current list (each task has an id, zone, text and whether it is done) and a new transcript.',
+      'Dictation is messy: filler words, repeats, self-corrections, asides. Work out what he means.',
+      '',
+      'Reply with only a JSON object of this exact shape:',
+      '{"mode":"append","add":[{"task":"Clean oven","zone":"Kitchen / Living","carry_note":"","priority":"","due":""}],"complete":["id1"],"remove":[],"note":""}',
+      '',
+      'Rules:',
+      '- mode: "new" only when he clearly wants to start over ("new session", "start fresh", "clear the list", "scrap all that"). Otherwise "append".',
+      '- add: genuinely new tasks. Short imperatives in UK English ("Clean oven", "Change Christo\'s sheets"). One entry per physical job.',
+      '  Never add anything already on the list, done or not, unless he clearly wants it done again.',
+      '  If something moves between rooms, put the task in the pickup zone with carry_note like "Carry towels → Laundry",',
+      '  and add a separate task in the destination zone only if there is work to do there.',
+      '- zone: exactly one of the zone names below.',
+      '- priority: "start" for anything that runs unattended and should kick off first (washing machine, dishwasher, soaking, slow cooker).',
+      '  "urgent" for anything time-bound he mentions (bins before the truck, before guests arrive, before he leaves). Otherwise "".',
+      '- due: a short time hint if he gave one ("by 9am", "before school run"), otherwise "".',
+      '- complete: ids of existing tasks he says are done ("did the oven", "bins are out", "bathroom is sorted"). Match on meaning, not wording.',
+      '  If he says something is done and it is not on the list, do not add it.',
+      '- remove: ids of tasks he wants dropped ("forget the oven", "don\'t worry about the shed"). Only when clearly a removal, never a guess.',
+      '- note: one short line when something was ambiguous or you made a call (for example which room). Otherwise "".',
+      '',
+      'Zones and what belongs in them:',
+      ZONES.map(z => '- ' + z.name + ': ' + z.hint).join('\n'),
+      '',
+      '"Clean the whole house" means one surfaces-and-vacuum task per indoor room, plus mop for Kitchen / Living, Bathroom, Spare Toilet and Laundry.',
+      'Anything away from the house goes in Errands.',
+      '',
+      'Current list (JSON): ' + JSON.stringify(current),
+      '',
+      'Transcript:',
+      transcript
+    ].join('\n');
+  }
+
+  function validatePlan(raw) {
+    const p = raw && typeof raw === 'object' && !Array.isArray(raw) ? raw : {};
+    const list = v => Array.isArray(v) ? v : [];
+    return {
+      mode: p.mode === 'new' ? 'new' : 'append',
+      add: list(p.add).filter(a => a && typeof a === 'object').map(a => ({
+        task: String(a.task || ''),
+        zone: String(a.zone || ''),
+        carry_note: String(a.carry_note || ''),
+        priority: String(a.priority || ''),
+        due: String(a.due || '')
+      })),
+      complete: list(p.complete).map(String),
+      remove: list(p.remove).map(String),
+      note: String(p.note || '')
+    };
+  }
+
+  let ctl = null;
+
+  async function submitDump() {
+    const box = $('dump');
+    const text = box.value.trim();
+    if (!text || busy || readOnly) return;
+    if (!sample) { showError('Dictation needs the Claude app or claude.ai.'); return; }
+    if (recognition && listening) recognition.stop();
+
+    ctl = new AbortController();
+    setBusy(true);
+    hint(currentTier() === 'complex' ? 'Thinking it through…' : 'Thinking…');
+    try {
+      const raw = await sample.json(buildPrompt(text), {
+        modelTier: currentTier(),
+        cache: false,
+        signal: ctl.signal
+      });
+      const plan = validatePlan(raw);
+      previous = doc ? clone(doc) : null;
+      const { next, changes } = applyPlan(doc, plan);
+      box.value = '';
+      saveDraft('');
+      box.dispatchEvent(new Event('input'));
+      await save(next);
+      showChanges(changes, true);
+      hint('');
+    } catch (e) {
+      const code = e && e.code;
+      if (code === 'cancelled') { hint(''); }
+      else if (code === 'not_granted' || code === 'sampling_disabled' || code === 'not_declared') {
+        sample = null;
+        showError('Claude is not allowed on this page yet. Reload and allow it when asked.');
+      }
+      else if (code === 'rate_limited') showError('Too many in a row, or you have hit your Claude limit. Give it a minute.');
+      else if (code === 'session_expired') showError('Signed out. Sign in to Claude again and reload.');
+      else if (code === 'invalid_json') showError('Claude mumbled. Send it again.');
+      else if (code === 'refused') showError('Claude did not want to touch that one. Rephrase it.');
+      else if (code === 'prompt_too_large') showError('That is a lot of talking. Split it in two.');
+      else showError('Something hiccuped. Your words are still in the box, send again.');
+      if (code !== 'cancelled') hint('Your words are still in the box.');
+    } finally {
+      setBusy(false);
+      ctl = null;
+    }
+  }
+
+  function undoLast() {
+    if (!previous) return;
+    const restore = previous;
+    previous = null;
+    hideChanges();
+    save(restore);
+  }
+
+  // =========================================================================
+  // Composer UI
+  // =========================================================================
+
+  function bindComposer() {
+    const box = $('dump');
+    const send = $('send');
+    try { box.value = localStorage.getItem(DRAFT_KEY) || ''; } catch (_) {}
+
+    const sync = () => {
+      box.style.height = 'auto';
+      box.style.height = Math.min(box.scrollHeight, window.innerHeight * 0.4) + 'px';
+      send.disabled = busy || !box.value.trim();
+      measureComposer();
+    };
+    box.addEventListener('input', () => { sync(); saveDraft(box.value); });
+    box.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitDump(); }
+    });
+    send.addEventListener('click', () => { if (busy && ctl) ctl.abort(); else submitDump(); });
+    $('changes-close').addEventListener('click', hideChanges);
+    $('changes-undo').addEventListener('click', undoLast);
+    $('tier').addEventListener('click', toggleTier);
+    window.addEventListener('resize', measureComposer);
+    sync();
+  }
+
+  function setBusy(on) {
+    busy = on;
+    const send = $('send');
+    send.classList.toggle('busy', on);
+    send.disabled = !on && !$('dump').value.trim();
+    send.setAttribute('aria-label', on ? 'Stop' : 'Send');
+    $('dump').disabled = on;
+    $('fresh-btn').disabled = on;
+  }
+
+  function setComposerEnabled(on) {
+    $('dump').disabled = !on;
+    $('send').disabled = !on;
+    $('mic').hidden = !on || !recognition;
+  }
+
+  function hint(text) { $('composer-hint').textContent = text; }
+
+  function measureComposer() {
+    document.documentElement.style.setProperty('--composer-h', $('composer').offsetHeight + 'px');
+  }
+
+  function saveDraft(v) { try { localStorage.setItem(DRAFT_KEY, v); } catch (_) {} }
+
+  function currentTier() { return $('tier').classList.contains('careful') ? 'complex' : 'quick'; }
+  function toggleTier() {
+    const el = $('tier');
+    const careful = !el.classList.contains('careful');
+    el.classList.toggle('careful', careful);
+    el.textContent = careful ? 'Careful' : 'Quick';
+    try { localStorage.setItem(TIER_KEY, careful ? 'careful' : 'quick'); } catch (_) {}
+  }
+  function restoreTier() {
+    try { if (localStorage.getItem(TIER_KEY) === 'careful') toggleTier(); } catch (_) {}
+  }
+
+  // ---------- speech (bonus where the browser allows it; keyboard mic always works) ----------
+
+  let recognition = null;
+  let listening = false;
+
+  function setupMic() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    recognition = new SR();
+    recognition.lang = 'en-AU';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    const mic = $('mic');
+    mic.hidden = false;
+    const box = $('dump');
+    let committed = '';
+
+    mic.addEventListener('click', () => {
+      if (listening) { recognition.stop(); return; }
+      committed = box.value ? box.value.replace(/\s*$/, ' ') : '';
+      try { recognition.start(); } catch (_) {}
+    });
+    recognition.onstart = () => { listening = true; mic.classList.add('listening'); hint('Listening. Tap the mic again when you\'re done.'); };
+    recognition.onend = () => { listening = false; mic.classList.remove('listening'); if (!busy) hint(''); box.dispatchEvent(new Event('input')); };
+    recognition.onerror = e => {
+      if (e.error === 'not-allowed' || e.error === 'service-not-allowed') {
+        mic.hidden = true;
+        recognition = null;
+        hint('Mic blocked here. Use the microphone key on your keyboard instead.');
+      } else if (e.error !== 'no-speech' && e.error !== 'aborted') {
+        hint('Mic hiccup. The keyboard mic works too.');
+      }
+    };
+    recognition.onresult = e => {
+      let finals = '', interim = '';
+      for (let i = 0; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finals += r[0].transcript + ' '; else interim += r[0].transcript;
+      }
+      box.value = committed + finals + interim;
+      box.dispatchEvent(new Event('input'));
+    };
+  }
+
+  // =========================================================================
+  // Header
+  // =========================================================================
+
+  function bindHeader() {
+    $('edit-btn').addEventListener('click', () => setEditing(!editing));
+    $('fresh-btn').addEventListener('click', startFresh);
+  }
+
+  function setEditing(on) {
+    editing = on;
+    document.body.classList.toggle('editing', on);
+    $('edit-btn').classList.toggle('on', on);
+    $('edit-btn').textContent = on ? 'Done' : 'Edit';
+  }
+
+  // =========================================================================
+  // Change summary and errors
+  // =========================================================================
+
+  let changesTimer = null;
+
+  function showChanges(ch, undoable) {
+    const items = [];
+    if (ch.mode === 'new') items.push(li('Fresh list.', '', true));
+    for (const a of ch.added) items.push(li('+ ', a.task, true, a.zone));
+    for (const c of ch.completed) items.push(li('✓ ' + c));
+    for (const r of ch.removed) items.push(li('− ' + r));
+    if (!items.length) items.push(li('Nothing to change. Already on top of it.'));
+
+    const counts = [];
+    if (ch.added.length) counts.push(ch.added.length + ' added');
+    if (ch.completed.length) counts.push(ch.completed.length + ' done');
+    if (ch.removed.length) counts.push(ch.removed.length + ' dropped');
+
+    const el = $('changes');
+    el.classList.remove('error');
+    $('changes-title').textContent = counts.length ? counts.join(' · ') : 'Updated';
+    const ul = $('changes-list');
+    ul.innerHTML = '';
+    items.forEach(n => ul.appendChild(n));
+    const note = $('changes-note');
+    note.hidden = !ch.note;
+    note.textContent = ch.note || '';
+    $('changes-undo').hidden = !(undoable && previous);
+    el.classList.add('show');
+    clearTimeout(changesTimer);
+    changesTimer = setTimeout(hideChanges, 12000);
+  }
+
+  function li(prefix, boldText, bold, zone) {
+    const node = document.createElement('li');
+    node.appendChild(document.createTextNode(prefix));
+    if (boldText) {
+      const b = document.createElement('b');
+      b.textContent = boldText;
+      node.appendChild(b);
+    }
+    if (zone) {
+      const z = document.createElement('span');
+      z.className = 'zone';
+      z.textContent = ' · ' + zone;
+      node.appendChild(z);
+    }
+    return node;
+  }
+
+  function showError(message) {
+    const el = $('changes');
+    el.classList.add('error');
+    $('changes-title').textContent = 'Hmm';
+    const ul = $('changes-list');
+    ul.innerHTML = '';
+    ul.appendChild(li(message));
+    $('changes-note').hidden = true;
+    $('changes-undo').hidden = true;
+    el.classList.add('show');
+    clearTimeout(changesTimer);
+    changesTimer = setTimeout(hideChanges, 9000);
+  }
+
+  function hideChanges() { $('changes').classList.remove('show'); }
+
+  // =========================================================================
+  // Utilities
+  // =========================================================================
+
+  function clone(o) { return JSON.parse(JSON.stringify(o)); }
+
+  function newId() {
+    if (window.crypto && crypto.randomUUID) return crypto.randomUUID().replace(/-/g, '').slice(0, 12);
+    return Math.random().toString(36).slice(2, 14);
+  }
+
+  boot();
+</script>

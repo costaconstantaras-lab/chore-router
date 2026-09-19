@@ -6,19 +6,26 @@ description: "Paste a voice transcript or brain dump of household tasks. Claude 
 
 Turn a rambling transcript into changes to Costa's chore list at Collier Crescent, Brunswick West, then push them to the app.
 
-The app can do this itself now (there is a dictation box in it). This command is the second door: for long pastes, for when you're already at the keyboard, or when the backend has no API key set.
+The app can do this itself now (there is a dictation box in it). This command is the second door: for long pastes, or when you're already at the keyboard.
 
-Backend URL: `https://script.google.com/macros/s/AKfycbw1D0d7ZWbNowpXZpuvmz2VFbZpBlo0leDdfjyUgmc2sNgOnmNXBNQWcDz1ia17JzxsKw/exec`
+There are two places the list can live. Ask which one only if it isn't obvious from context; the artifact is the default.
+
+- **Artifact (default):** https://claude.ai/artifact/B1Lwp7aPAe9BgZEbcA7cZE. The list is one document at `list/current` in the artifact's store. Read it with the `ArtifactData` tool (`action: "get"`, `collection: "list"`, `doc_id: "current"`), write it back with `action: "set"`.
+- **Apps Script:** `https://script.google.com/macros/s/AKfycbw1D0d7ZWbNowpXZpuvmz2VFbZpBlo0leDdfjyUgmc2sNgOnmNXBNQWcDz1ia17JzxsKw/exec`. Use the HTTP steps below.
 
 ---
 
 ## Step 1 — Fetch the current list
 
+Artifact: `ArtifactData` get on `list/current`. The document is `{ session_id, started_at, updated_at, tasks: [...] }` and each task is `{ task_id, zone, task, carry_note, completed, priority, due, sort_order }`.
+
+Apps Script:
+
 ```bash
 curl -s "https://script.google.com/macros/s/AKfycbw1D0d7ZWbNowpXZpuvmz2VFbZpBlo0leDdfjyUgmc2sNgOnmNXBNQWcDz1ia17JzxsKw/exec?action=get_active"
 ```
 
-Each task has a `task_id`, `zone`, `task` and `completed`. You need the ids to complete or remove things.
+Either way, each task has a `task_id`. You need the ids to complete or remove things.
 
 ## Step 2 — Read the transcript and decide the changes
 
@@ -65,6 +72,17 @@ Mode: append
 If the transcript was unambiguous, push straight away. Ask only when a task has no obvious room or a removal is a guess.
 
 ## Step 4 — Push
+
+**Artifact:** apply the plan yourself and write the whole document back with `ArtifactData` set on `list/current`:
+
+1. Mark completed ids `completed: true`. Drop removed ids. Append new tasks with a fresh 12-character `task_id`, `completed: false`, `sort_order: 0`.
+2. Re-sort: `priority: "start"` first, then `"urgent"`, then by the zone order above; keep existing order within a group. Renumber `sort_order` from 1.
+3. If mode is `new`, first copy the old document to `history/<old session_id>` (set), then write a fresh document with a new `session_id` and `started_at`.
+4. Set `updated_at` to now (ISO string).
+
+The page is subscribed to the document, so it updates on his phone the moment the write lands.
+
+**Apps Script:**
 
 ```bash
 cat > /tmp/chore_payload.json << 'PAYLOAD'
