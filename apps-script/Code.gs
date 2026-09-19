@@ -67,7 +67,8 @@ const ZONES = [
 
 const ZONE_NAMES = ZONES.map(z => z.name);
 
-const SHEETS = { tasks: 'Tasks', sessions: 'Sessions', log: 'Log' };
+// The original spreadsheet's tabs are lowercase; lookup ignores case either way.
+const SHEETS = { tasks: 'tasks', sessions: 'sessions', log: 'log' };
 
 const TASK_HEADERS = [
   'session_id', 'zone', 'task', 'carry_note', 'completed', 'sort_order',
@@ -467,10 +468,12 @@ function writeLog(action, input, output, ms) {
   }
 }
 
-/** Returns the sheet, creating it and its header row if missing. */
+/** Returns the sheet (matched ignoring case), creating it and its header row if missing. */
 function sheet(name, headers) {
   const book = spreadsheet();
-  let s = book.getSheetByName(name);
+  let s = book.getSheetByName(name) ||
+    book.getSheets().find(x => x.getName().toLowerCase() === name.toLowerCase()) ||
+    null;
   if (!s) s = book.insertSheet(name);
   const first = s.getLastRow() ? s.getRange(1, 1).getValue() : '';
   if (String(first) !== headers[0]) {

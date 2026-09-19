@@ -85,9 +85,9 @@ All POSTs are `Content-Type: text/plain` with a JSON body (that's what lets Apps
 
 ### Sheets
 
-**Tasks**: `session_id, zone, task, carry_note, completed, sort_order, task_id, created_at, completed_at, priority`
-**Sessions**: `session_id, date, status, created_at`
-**Log**: `timestamp, action, input, output, ms` (last 500 requests, handy when a dictation lands somewhere odd)
+**tasks**: `session_id, zone, task, carry_note, completed, sort_order, task_id, created_at, completed_at, priority`
+**sessions**: `session_id, date, status, created_at`
+**log**: `timestamp, action, input, output, ms` (last 500 requests, handy when a dictation lands somewhere odd)
 
 ## Changing the house
 
