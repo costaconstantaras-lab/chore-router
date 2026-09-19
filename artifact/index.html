@@ -148,6 +148,17 @@
     text-transform: uppercase;
     padding: 18px 16px 6px;
   }
+  .zone-header.tappable { cursor: pointer; -webkit-tap-highlight-color: transparent; }
+  .zone-header.start { color: var(--accent); }
+  .start-mark {
+    display: inline-block;
+    margin-left: 8px;
+    padding: 1px 7px;
+    border: 1px solid var(--accent);
+    border-radius: 999px;
+    font-size: 10px;
+    letter-spacing: 0.08em;
+  }
 
   .task-row {
     display: flex;
@@ -423,6 +434,8 @@
     { name: 'Errands',                hint: 'anything away from the house: shops, post office, pharmacy' }
   ];
   const ZONE_NAMES = ZONES.map(z => z.name);
+  // These always close out the walk, whatever room you start in.
+  const TERMINAL_ZONES = new Set(['Garden', 'Shed', 'Errands']);
 
   // =========================================================================
   // State
@@ -482,6 +495,7 @@
       session_id: String(data.session_id || newId()),
       started_at: String(data.started_at || ''),
       updated_at: String(data.updated_at || ''),
+      start_zone: ZONE_NAMES.includes(data.start_zone) ? data.start_zone : '',
       tasks: tasks.map(t => ({
         task_id: String(t.task_id || newId()),
         zone: String(t.zone || ''),
@@ -490,6 +504,7 @@
         completed: !!t.completed,
         priority: t.priority === 'start' || t.priority === 'urgent' ? t.priority : '',
         due: String(t.due || ''),
+        after_id: String(t.after_id || ''),
         sort_order: Number(t.sort_order) || 0
       })).sort((a, b) => a.sort_order - b.sort_order)
     };
@@ -521,7 +536,7 @@
   }
 
   function freshDoc() {
-    return { session_id: newId(), started_at: new Date().toISOString(), updated_at: '', tasks: [] };
+    return { session_id: newId(), started_at: new Date().toISOString(), updated_at: '', start_zone: '', tasks: [] };
   }
 
   // =========================================================================
@@ -553,17 +568,36 @@
       content.appendChild(done);
     }
 
-    const zones = new Map();
+    // Consecutive runs, not a map: a task pulled after its dependency in another
+    // room must stay there on screen, even if that splits a room in two.
+    const zones = [];
     for (const t of list) {
       const key = t.priority === 'start' ? 'Kick off first' : t.priority === 'urgent' ? 'Time-bound' : t.zone;
-      if (!zones.has(key)) zones.set(key, []);
-      zones.get(key).push(t);
+      const last = zones[zones.length - 1];
+      if (last && last[0] === key) last[1].push(t); else zones.push([key, [t]]);
     }
     for (const [zone, zoneTasks] of zones) {
       const section = document.createElement('section');
       const header = document.createElement('div');
       header.className = 'zone-header';
       header.textContent = zone;
+      if (ZONE_NAMES.includes(zone) && !TERMINAL_ZONES.has(zone)) {
+        header.classList.add('tappable');
+        header.setAttribute('role', 'button');
+        header.setAttribute('tabindex', '0');
+        header.title = 'Start the walk here';
+        if (doc.start_zone === zone) {
+          header.classList.add('start');
+          header.appendChild(document.createTextNode(' '));
+          const mark = document.createElement('span');
+          mark.className = 'start-mark';
+          mark.textContent = 'you are here';
+          header.appendChild(mark);
+        }
+        const pick = () => setStartZone(doc.start_zone === zone ? '' : zone);
+        header.addEventListener('click', pick);
+        header.addEventListener('keydown', e => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); pick(); } });
+      }
       section.appendChild(header);
       for (const task of zoneTasks) section.appendChild(buildTaskRow(task));
       content.appendChild(section);
@@ -666,6 +700,14 @@
     save(next);
   }
 
+  function setStartZone(zone) {
+    if (!doc || readOnly) return;
+    const next = clone(doc);
+    next.start_zone = zone;
+    next.tasks = resequence(next.tasks, next.start_zone);
+    save(next);
+  }
+
   async function startFresh() {
     if (readOnly) return;
     const list = tasks();
@@ -687,10 +729,14 @@
 
   function applyPlan(current, plan) {
     let next = current ? clone(current) : freshDoc();
-    const changes = { mode: plan.mode, added: [], completed: [], removed: [], note: plan.note || '' };
+    const changes = { mode: plan.mode, added: [], completed: [], removed: [], start_zone: '', note: plan.note || '' };
 
     if (plan.mode === 'new') {
       next = freshDoc();
+    }
+    if (plan.start_zone) {
+      const z = normaliseZone(plan.start_zone);
+      if (!TERMINAL_ZONES.has(z) && z !== next.start_zone) { next.start_zone = z; changes.start_zone = z; }
     }
 
     const complete = new Set(plan.complete);
@@ -719,18 +765,57 @@
         completed: false,
         priority: a.priority === 'start' || a.priority === 'urgent' ? a.priority : '',
         due: String(a.due || '').trim().slice(0, 24),
+        after_id: '',
+        after_text: String(a.after || '').trim(),
         sort_order: 100000 + i
       });
       changes.added.push({ task: text, zone });
     });
 
-    next.tasks = resequence(next.tasks);
+    // Resolve "do this after that" by text, against the whole list, then drop the scratch field.
+    for (const t of next.tasks) {
+      if (t.after_text) {
+        const key = normalise(t.after_text);
+        const parent = next.tasks.find(o => o !== t && (normalise(o.task) === key || normalise(o.task).includes(key) || key.includes(normalise(o.task))));
+        if (parent) t.after_id = parent.task_id;
+      }
+      delete t.after_text;
+    }
+
+    next.tasks = resequence(next.tasks, next.start_zone);
     return { next, changes };
   }
 
-  function resequence(list) {
-    const rank = t => t.priority === 'start' ? -2 : t.priority === 'urgent' ? -1 : zoneRank(t.zone);
+  // Walk order: unattended jobs first, deadlines next, then the rooms in walking
+  // order starting from wherever you are, with Garden, Shed and Errands last.
+  // A prerequisite that sits later in the walk is pulled up to just before the
+  // task that needs it (go and get the washing, then fold it where you are).
+  function resequence(list, startZone) {
+    const n = ZONE_NAMES.length;
+    const startRank = startZone ? zoneRank(startZone) : 0;
+    const walkRank = zone => {
+      const r = zoneRank(zone);
+      if (r >= n) return n + 10;
+      if (TERMINAL_ZONES.has(zone)) return n + r;
+      return (r - startRank + n) % n;
+    };
+    const rank = t => t.priority === 'start' ? -2 : t.priority === 'urgent' ? -1 : walkRank(t.zone);
     const sorted = list.slice().sort((a, b) => (rank(a) - rank(b)) || (a.sort_order - b.sort_order));
+
+    for (let pass = 0; pass < sorted.length; pass++) {
+      let moved = false;
+      for (let i = 0; i < sorted.length; i++) {
+        const t = sorted[i];
+        if (!t.after_id || t.after_id === t.task_id) continue;
+        const p = sorted.findIndex(o => o.task_id === t.after_id);
+        if (p === -1 || p < i) continue;
+        const [parent] = sorted.splice(p, 1);
+        sorted.splice(i, 0, parent);
+        moved = true;
+      }
+      if (!moved) break;
+    }
+
     sorted.forEach((t, i) => { t.sort_order = i + 1; });
     return sorted;
   }
@@ -770,7 +855,19 @@
       'Dictation is messy: filler words, repeats, self-corrections, asides. Work out what he means.',
       '',
       'Reply with only a JSON object of this exact shape:',
-      '{"mode":"append","add":[{"task":"Clean oven","zone":"Kitchen / Living","carry_note":"","priority":"","due":""}],"complete":["id1"],"remove":[],"note":""}',
+      '{"mode":"append","start_zone":"","add":[{"task":"Clean oven","zone":"Kitchen / Living","carry_note":"","priority":"","due":"","after":""}],"complete":["id1"],"remove":[],"note":""}',
+      '',
+      'How the list gets ordered (you do not order it, but you feed the router):',
+      '- The router walks the house in the zone order below, starting from start_zone if set, with Garden, Shed and Errands always last.',
+      '- Tasks with priority "start" go before everything, then "urgent", then the walk.',
+      '- A task with "after" set to the text of another task (new or existing) is pulled to sit right after it, even across rooms.',
+      '',
+      'Chain work so nothing gets carried twice and no room gets visited twice for no reason:',
+      '- If he says where he is ("sitting on the couch", "in the kitchen"), set start_zone to that zone. Otherwise leave it "".',
+      '- Something that can be done sitting down where he is (folding washing on the couch, sorting mail) goes in THAT zone with a carry_note to where it ends up.',
+      '- Then add the follow-on in the destination room with "after" pointing at the first task, e.g. fold washing in the Lounge with carry_note "Carry folded clothes → Christo\'s Room", then "Put away Christo\'s clothes" in Christo\'s Room with after "Fold washing".',
+      '- Bringing washing in, folding it, putting it away, making the bed: that is a chain. Say so with "after".',
+      '- Wet jobs (mop, shower spray) go after the dry jobs in the same room. Use "after" if the order matters.',
       '',
       'Rules:',
       '- mode: "new" only when he clearly wants to start over ("new session", "start fresh", "clear the list", "scrap all that"). Otherwise "append".',
@@ -782,6 +879,7 @@
       '- priority: "start" for anything that runs unattended and should kick off first (washing machine, dishwasher, soaking, slow cooker).',
       '  "urgent" for anything time-bound he mentions (bins before the truck, before guests arrive, before he leaves). Otherwise "".',
       '- due: a short time hint if he gave one ("by 9am", "before school run"), otherwise "".',
+      '- after: the exact text of the task this one must follow, or "".',
       '- complete: ids of existing tasks he says are done ("did the oven", "bins are out", "bathroom is sorted"). Match on meaning, not wording.',
       '  If he says something is done and it is not on the list, do not add it.',
       '- remove: ids of tasks he wants dropped ("forget the oven", "don\'t worry about the shed"). Only when clearly a removal, never a guess.',
@@ -793,6 +891,7 @@
       '"Clean the whole house" means one surfaces-and-vacuum task per indoor room, plus mop for Kitchen / Living, Bathroom, Spare Toilet and Laundry.',
       'Anything away from the house goes in Errands.',
       '',
+      'Current start_zone: ' + JSON.stringify(doc && doc.start_zone ? doc.start_zone : ''),
       'Current list (JSON): ' + JSON.stringify(current),
       '',
       'Transcript:',
@@ -805,12 +904,14 @@
     const list = v => Array.isArray(v) ? v : [];
     return {
       mode: p.mode === 'new' ? 'new' : 'append',
+      start_zone: String(p.start_zone || ''),
       add: list(p.add).filter(a => a && typeof a === 'object').map(a => ({
         task: String(a.task || ''),
         zone: String(a.zone || ''),
         carry_note: String(a.carry_note || ''),
         priority: String(a.priority || ''),
-        due: String(a.due || '')
+        due: String(a.due || ''),
+        after: String(a.after || '')
       })),
       complete: list(p.complete).map(String),
       remove: list(p.remove).map(String),
@@ -1006,6 +1107,7 @@
   function showChanges(ch, undoable) {
     const items = [];
     if (ch.mode === 'new') items.push(li('Fresh list.', '', true));
+    if (ch.start_zone) items.push(li('Walk starts in ', ch.start_zone, true));
     for (const a of ch.added) items.push(li('+ ', a.task, true, a.zone));
     for (const c of ch.completed) items.push(li('✓ ' + c));
     for (const r of ch.removed) items.push(li('− ' + r));

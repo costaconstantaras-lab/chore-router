@@ -10,6 +10,15 @@ Open the app, tap the box, dictate whatever's in your head. New chores get added
 
 The Quick / Careful toggle under the box picks the model tier. Quick answers in a couple of seconds and is right for a morning walk-through. Careful thinks first, for a long or tangled dump.
 
+How the walk is built, in order of precedence:
+
+1. Anything that runs unattended (a wash, the dishwasher) goes first.
+2. Anything with a deadline goes next.
+3. Then the rooms in walking order, starting from wherever you are. Say where you are in the dictation ("I'm on the couch") or tap a room header to start the walk there. Garden, Shed and Errands always close it out.
+4. A task that needs another done first ("fold washing" needs "bring washing in") pulls that prerequisite up to sit just before it, even from another room. The model marks these chains when you describe them.
+
+The Apps Script build does steps 1 to 3 without the start zone, and does not do step 4 yet.
+
 **`index.html` plus `apps-script/Code.gs` is the self-hosted version** on Google Sheets and Apps Script, for when you want the sheet as a visible record or want it outside claude.ai. The rest of this README is about that build. The routing rules, the zone table and the prompt are the same in both, so a change to the house goes in both places.
 
 ## How it fits together
