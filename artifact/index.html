@@ -444,6 +444,7 @@
     ['hall_laundry', 'hall_kitchen', 3], ['hall_kitchen', 'hall_bath', 1.75], ['hall_bath', 'hall_back', 2.75],
     ['myroom', 'hall_front', 1.5], ['sofia', 'hall_front', 1], ['lounge', 'hall_lounge', 1], ['christo', 'hall_christo', 1],
     ['laundry', 'hall_laundry', 1], ['toilet', 'laundry', 4], ['kitchen', 'hall_kitchen', 1], ['kitchen', 'lounge', 3],
+    ['kitchen', 'hall_laundry', 2.5], // no wall between hall and kitchen: open from the lounge back (plan Rev C)
     ['bathroom', 'hall_bath', 1], ['kitchen', 'hall_back', 3],
     ['hall_back', 'verandah', 1.5], ['verandah', 'garden', 3], ['garden', 'shed', 5],
     ['garden', 'sidetop', 5], ['sidetop', 'bins', 8], ['bins', 'sidegate', 7.5], ['sidegate', 'porch', 6],
@@ -978,7 +979,7 @@
       '- Then add the follow-on in the destination room with "after" pointing at the first task, e.g. fold washing in the Lounge with carry_note "Carry folded clothes → Christo\'s Room", then "Put away Christo\'s clothes" in Christo\'s Room with after "Fold washing".',
       '- Bringing washing in, folding it, putting it away, making the bed: that is a chain. Say so with "after".',
       '- Wet jobs (mop, shower spray) go after the dry jobs in the same room. Use "after" if the order matters.',
-      '- Kitchen / Living is one zone with two ends and a bench that belongs to both. List kitchen-end tasks together and living-end tasks together.',
+      '- Kitchen / Living is one zone with two ends and a bench that belongs to both, fully open to the hallway. List kitchen-end tasks together and living-end tasks together.',
       '- The wheelie bins sit outside the kitchen window: emptying the kitchen bin into them is a Kitchen / Living task. The Bins zone is only for wheeling bins out to the street or back in. Bin night is Wednesday; if it is Wednesday and he mentions bins, make it urgent with due "tonight".',
       '',
       'Rules:',
