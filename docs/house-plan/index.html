@@ -1,0 +1,427 @@
+<title>Collier Crescent Plan</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=IBM+Plex+Sans:wght@400;500;600&display=swap">
+<style>
+  :root {
+    --ground: #eeeeea;
+    --sheet: #fbfbf8;
+    --ink: #1b2028;
+    --ink-soft: #454b56;
+    --muted: #6e7480;
+    --line: #d6d8d2;
+    --garden: #e4ebdd;
+    --blue: #2456a6;
+    --blue-soft: #d8e2f4;
+    --amber: #b8741a;
+    --amber-soft: #f6e6c8;
+    --grey-route: #8b919b;
+    --mono: 'IBM Plex Mono', ui-monospace, SFMono-Regular, Menlo, monospace;
+    --sans: 'IBM Plex Sans', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --ground: #121519;
+      --sheet: #1b1f26;
+      --ink: #e8e7e1;
+      --ink-soft: #c2c5cb;
+      --muted: #96a0ad;
+      --line: #2e343d;
+      --garden: #202a21;
+      --blue: #8fb3ee;
+      --blue-soft: #24324a;
+      --amber: #dfa64e;
+      --amber-soft: #3d2f18;
+      --grey-route: #6b727d;
+    }
+  }
+  :root[data-theme="dark"] {
+    --ground: #121519;
+    --sheet: #1b1f26;
+    --ink: #e8e7e1;
+    --ink-soft: #c2c5cb;
+    --muted: #96a0ad;
+    --line: #2e343d;
+    --garden: #202a21;
+    --blue: #8fb3ee;
+    --blue-soft: #24324a;
+    --amber: #dfa64e;
+    --amber-soft: #3d2f18;
+    --grey-route: #6b727d;
+  }
+
+  *, *::before, *::after { box-sizing: border-box; }
+  body {
+    margin: 0;
+    background: var(--ground);
+    color: var(--ink);
+    font-family: var(--sans);
+    font-size: 15px;
+    line-height: 1.5;
+    -webkit-font-smoothing: antialiased;
+  }
+  .wrap { max-width: 980px; margin: 0 auto; padding-inline: 16px; padding-block: 24px 64px; }
+
+  /* ---------- title block ---------- */
+  .titleblock {
+    display: grid;
+    grid-template-columns: 1fr auto;
+    gap: 12px 24px;
+    align-items: end;
+    border: 1px solid var(--ink);
+    padding: 16px 18px;
+    background: var(--sheet);
+    font-family: var(--mono);
+    font-size: 12px;
+  }
+  .titleblock h1 {
+    margin: 0;
+    font-family: var(--sans);
+    font-size: 26px;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+    line-height: 1.15;
+    text-wrap: balance;
+  }
+  .titleblock .sub { color: var(--muted); margin-top: 6px; }
+  .meta { display: grid; grid-template-columns: auto auto; gap: 2px 14px; color: var(--ink-soft); }
+  .meta b { color: var(--muted); font-weight: 500; }
+  @media (max-width: 560px) { .titleblock { grid-template-columns: 1fr; } }
+
+  h2 {
+    font-size: 13px;
+    font-family: var(--mono);
+    font-weight: 600;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--muted);
+    margin: 40px 0 12px;
+  }
+  p { max-width: 68ch; margin: 0 0 12px; }
+  p.lede { font-size: 16px; color: var(--ink-soft); }
+
+  /* ---------- figures ---------- */
+  figure { margin: 0; background: var(--sheet); border: 1px solid var(--line); padding: 12px; }
+  figure svg { display: block; width: 100%; height: auto; }
+  figcaption { font-size: 13px; color: var(--muted); padding: 10px 4px 0; max-width: none; }
+  .legend { display: flex; flex-wrap: wrap; gap: 10px 20px; font-family: var(--mono); font-size: 12px; color: var(--ink-soft); padding: 12px 4px 0; }
+  .legend span { display: inline-flex; align-items: center; gap: 8px; }
+  .swatch { display: inline-block; width: 26px; height: 0; border-top: 2px solid var(--ink); }
+  .swatch.door { border-top: 4px solid var(--blue); }
+  .swatch.open { border-top: 2px dashed var(--ink); }
+  .swatch.q { width: 18px; height: 18px; border: 0; border-radius: 50%; background: var(--amber); color: var(--sheet); font-size: 11px; font-weight: 600; text-align: center; line-height: 18px; }
+
+  .routes { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; }
+  @media (max-width: 720px) { .routes { grid-template-columns: 1fr; } }
+
+  /* plan strokes, in page CSS so both themes resolve */
+  .wall { stroke: currentColor; stroke-width: 2.2; fill: none; stroke-linecap: square; }
+  .wall-thin { stroke: currentColor; stroke-width: 1.2; fill: none; }
+  .boundary { stroke: var(--muted); stroke-width: 1.2; stroke-dasharray: 2 5; fill: none; }
+  .open { stroke: currentColor; stroke-width: 1.6; stroke-dasharray: 6 5; fill: none; }
+  .gap { stroke: var(--sheet); stroke-width: 7; fill: none; stroke-linecap: butt; }
+  .door { stroke: var(--blue); stroke-width: 4; fill: none; stroke-linecap: butt; }
+  .garden-fill { fill: var(--garden); stroke: none; }
+  .sheet-fill { fill: var(--sheet); stroke: none; }
+  .bench { fill: var(--line); stroke: currentColor; stroke-width: 1; }
+  .bin { fill: var(--line); stroke: currentColor; stroke-width: 1.2; }
+  .lbl { font-family: var(--mono); font-size: 13px; fill: currentColor; }
+  .lbl.small { font-size: 11px; fill: var(--muted); }
+  .lbl.street { font-size: 14px; font-weight: 500; }
+  .q circle { fill: var(--amber); stroke: none; }
+  .q text { font-family: var(--mono); font-size: 12px; font-weight: 600; fill: var(--sheet); text-anchor: middle; dominant-baseline: central; }
+  .route { fill: none; stroke-width: 2.4; stroke-linejoin: round; stroke-linecap: round; }
+  .route.now { stroke: var(--grey-route); stroke-dasharray: 5 6; }
+  .route.next { stroke: var(--blue); }
+  .stop circle { stroke-width: 1.5; }
+  .stop.now circle { fill: var(--sheet); stroke: var(--grey-route); }
+  .stop.next circle { fill: var(--blue); stroke: var(--blue); }
+  .stop text { font-family: var(--mono); font-size: 11px; font-weight: 600; text-anchor: middle; dominant-baseline: central; }
+  .stop.now text { fill: var(--ink); }
+  .stop.next text { fill: var(--sheet); }
+
+  /* ---------- tables ---------- */
+  table { border-collapse: collapse; width: 100%; font-size: 14px; background: var(--sheet); }
+  th, td { text-align: left; vertical-align: top; padding: 9px 12px; border-bottom: 1px solid var(--line); }
+  th { font-family: var(--mono); font-size: 11px; letter-spacing: 0.08em; text-transform: uppercase; color: var(--muted); font-weight: 600; }
+  td:first-child { font-weight: 500; white-space: nowrap; }
+  .tablewrap { overflow-x: auto; border: 1px solid var(--line); }
+  td .qn, li .qn { display: inline-block; min-width: 20px; height: 20px; padding: 0 5px; border-radius: 10px; background: var(--amber); color: var(--sheet); font-family: var(--mono); font-size: 11px; font-weight: 600; text-align: center; line-height: 20px; margin-right: 6px; vertical-align: 1px; }
+  td.num { font-family: var(--mono); color: var(--muted); font-weight: 400; }
+  td.dim { color: var(--muted); }
+
+  ol.q { margin: 0; padding: 0; list-style: none; counter-reset: none; max-width: 72ch; }
+  ol.q li { padding: 10px 0; border-bottom: 1px solid var(--line); }
+  ol.q li b { font-weight: 600; }
+  ol.q li .ans { display: block; font-size: 13px; color: var(--muted); margin-top: 2px; }
+
+  .note { background: var(--amber-soft); border-left: 3px solid var(--amber); padding: 10px 14px; max-width: 72ch; font-size: 14px; }
+</style>
+
+<div class="wrap">
+
+  <header class="titleblock">
+    <div>
+      <h1>Collier Crescent Plan</h1>
+      <div class="sub">87 Collier Crescent, Brunswick West. Redrawn from Costa's pencil sketch, photographed 2 May 2026. Not to scale.</div>
+    </div>
+    <div class="meta">
+      <b>Sheet</b><span>A-01</span>
+      <b>Revision</b><span>A, 19 Sep 2026</span>
+      <b>Status</b><span>For confirmation</span>
+      <b>Convention</b><span>Front is south. Two marks in a wall are a door.</span>
+    </div>
+  </header>
+
+  <p class="lede" style="margin-top:20px">Everything below comes from your drawing and nothing else. Blue bars are the doors you marked. Amber numbers are the places I had to make a call, and each one has a question further down. Once you've answered those, this sheet becomes the master and the app's walk order gets rebuilt from it.</p>
+
+  <h2>1. The plan as I read it</h2>
+  <figure>
+    <svg id="plan" viewBox="40 20 860 1210" role="img" aria-label="Floor plan of the house at Collier Crescent: a central hallway with five rooms down the left side, Sofia's room, lounge, kitchen and living down the right, a porch at the front, a verandah, garden and shed at the back, and bins on the side path.">
+      <!-- outdoor grounds -->
+      <rect class="garden-fill" x="120" y="40" width="740" height="260"/>
+      <line class="boundary" x1="100" y1="40" x2="100" y2="1130"/>
+      <line class="boundary" x1="860" y1="40" x2="860" y2="1130"/>
+      <line class="boundary" x1="100" y1="40" x2="860" y2="40"/>
+
+      <!-- north -->
+      <line class="wall-thin" x1="836" y1="92" x2="836" y2="56"/>
+      <polygon points="836,50 831,62 841,62" fill="currentColor"/>
+      <text class="lbl small" x="836" y="108" text-anchor="middle">N</text>
+
+      <!-- shed -->
+      <rect class="sheet-fill" x="620" y="120" width="100" height="100"/>
+      <rect class="wall" x="620" y="120" width="100" height="100"/>
+      <text class="lbl" x="632" y="142">Shed</text>
+
+      <!-- verandah -->
+      <rect class="sheet-fill" x="120" y="300" width="600" height="80"/>
+      <rect class="wall-thin" x="120" y="300" width="600" height="80"/>
+      <text class="lbl" x="132" y="322">Rear Verandah</text>
+      <text class="lbl" x="132" y="62">Garden</text>
+
+      <!-- house shell -->
+      <rect class="sheet-fill" x="120" y="380" width="600" height="630"/>
+      <rect class="wall" x="120" y="380" width="600" height="630"/>
+
+      <!-- porch -->
+      <rect class="sheet-fill" x="120" y="1010" width="340" height="80"/>
+      <rect class="wall-thin" x="120" y="1010" width="340" height="80"/>
+      <text class="lbl" x="132" y="1032">Porch</text>
+
+      <!-- hallway left wall and left wing dividers -->
+      <line class="wall" x1="320" y1="380" x2="320" y2="1010"/>
+      <line class="wall" x1="120" y1="560" x2="320" y2="560"/>
+      <line class="wall" x1="120" y1="630" x2="320" y2="630"/>
+      <line class="wall" x1="120" y1="740" x2="320" y2="740"/>
+      <line class="wall" x1="120" y1="880" x2="320" y2="880"/>
+
+      <!-- right wing: hallway right wall from living down to the lounge corner, then Sofia's wall -->
+      <line class="wall" x1="420" y1="560" x2="420" y2="880"/>
+      <line class="wall" x1="420" y1="880" x2="480" y2="920"/>
+      <line class="wall" x1="480" y1="920" x2="480" y2="1010"/>
+      <line class="wall" x1="420" y1="680" x2="720" y2="680"/>
+      <line class="wall" x1="480" y1="920" x2="720" y2="920"/>
+
+      <!-- open plan: living to kitchen across the bench -->
+      <line class="open" x1="420" y1="560" x2="720" y2="560"/>
+      <rect class="bench" x="440" y="572" width="260" height="22"/>
+      <text class="lbl small" x="570" y="586" text-anchor="middle" dominant-baseline="central">bench</text>
+
+      <!-- room labels -->
+      <text class="lbl" x="132" y="402">Bathroom</text>
+      <text class="lbl" x="132" y="582">Spare Toilet</text>
+      <text class="lbl" x="132" y="652">Laundry</text>
+      <text class="lbl" x="132" y="762">Christo's Room</text>
+      <text class="lbl" x="132" y="902">My Room</text>
+      <text class="lbl" transform="translate(376 760) rotate(-90)" text-anchor="middle">Hallway</text>
+      <text class="lbl" x="432" y="402">Living</text>
+      <text class="lbl" x="432" y="640">Kitchen</text>
+      <text class="lbl" x="492" y="702">Lounge</text>
+      <text class="lbl" x="492" y="942">Sofia's Room</text>
+
+      <!-- side path, bins, side gate -->
+      <text class="lbl small" transform="translate(800 430) rotate(90)" text-anchor="middle">side path</text>
+      <rect class="bin" x="735" y="575" width="30" height="28"/>
+      <rect class="bin" x="735" y="615" width="30" height="28"/>
+      <rect class="bin" x="735" y="655" width="30" height="28"/>
+      <text class="lbl" x="776" y="634">Bins</text>
+      <line class="wall-thin" x1="720" y1="920" x2="860" y2="920"/>
+
+      <!-- front fence and street -->
+      <line class="wall-thin" x1="100" y1="1130" x2="860" y2="1130"/>
+      <text class="lbl street" x="480" y="1190" text-anchor="middle">Collier Crescent</text>
+
+      <!-- doors: erase the wall, then paint the opening -->
+      <line class="gap" x1="340" y1="1010" x2="390" y2="1010"/><line class="door" x1="340" y1="1010" x2="390" y2="1010"/>
+      <line class="gap" x1="320" y1="930" x2="320" y2="970"/><line class="door" x1="320" y1="930" x2="320" y2="970"/>
+      <line class="gap" x1="320" y1="800" x2="320" y2="840"/><line class="door" x1="320" y1="800" x2="320" y2="840"/>
+      <line class="gap" x1="320" y1="665" x2="320" y2="705"/><line class="door" x1="320" y1="665" x2="320" y2="705"/>
+      <line class="gap" x1="320" y1="470" x2="320" y2="510"/><line class="door" x1="320" y1="470" x2="320" y2="510"/>
+      <line class="gap" x1="150" y1="630" x2="190" y2="630"/><line class="door" x1="150" y1="630" x2="190" y2="630"/>
+      <line class="gap" x1="480" y1="950" x2="480" y2="990"/><line class="door" x1="480" y1="950" x2="480" y2="990"/>
+      <line class="gap" x1="437" y1="891" x2="463" y2="909"/><line class="door" x1="437" y1="891" x2="463" y2="909"/>
+      <line class="gap" x1="450" y1="680" x2="500" y2="680"/><line class="door" x1="450" y1="680" x2="500" y2="680"/>
+      <line class="gap" x1="340" y1="380" x2="400" y2="380"/><line class="door" x1="340" y1="380" x2="400" y2="380"/>
+      <line class="gap" x1="770" y1="920" x2="810" y2="920"/><line class="door" x1="770" y1="920" x2="810" y2="920"/>
+      <line class="gap" x1="400" y1="1130" x2="460" y2="1130"/><line class="door" x1="400" y1="1130" x2="460" y2="1130"/>
+      <line class="gap" x1="620" y1="150" x2="620" y2="190"/><line class="door" x1="620" y1="150" x2="620" y2="190"/>
+
+      <!-- questions -->
+      <g class="q" id="qmarks">
+        <g transform="translate(412 1042)"><circle r="11"/><text>1</text></g>
+        <g transform="translate(212 650)"><circle r="11"/><text>2</text></g>
+        <g transform="translate(372 542)"><circle r="11"/><text>3</text></g>
+        <g transform="translate(432 362)"><circle r="11"/><text>4</text></g>
+        <g transform="translate(600 702)"><circle r="11"/><text>5</text></g>
+        <g transform="translate(500 878)"><circle r="11"/><text>6</text></g>
+        <g transform="translate(800 720)"><circle r="11"/><text>7</text></g>
+        <g transform="translate(696 614)"><circle r="11"/><text>8</text></g>
+        <g transform="translate(78 560)"><circle r="11"/><text>9</text></g>
+        <g transform="translate(680 520)"><circle r="11"/><text>10</text></g>
+      </g>
+    </svg>
+    <div class="legend">
+      <span><i class="swatch"></i>wall</span>
+      <span><i class="swatch door"></i>door or gate, as marked on the sketch</span>
+      <span><i class="swatch open"></i>open plan, no wall</span>
+      <span><i class="swatch q">?</i>needs your call, see section 3</span>
+    </div>
+    <figcaption>Figure 1. The house redrawn from the sketch, front (Collier Crescent) at the bottom, garden at the top. Room proportions follow the pencil drawing, not a tape measure.</figcaption>
+  </figure>
+
+  <h2>2. Room by room</h2>
+  <div class="tablewrap">
+    <table>
+      <thead><tr><th>Room</th><th>Where</th><th>Opens onto</th><th>What the sketch shows</th></tr></thead>
+      <tbody>
+        <tr><td>Porch</td><td>Front, under My Room and the hall</td><td>Front door into the hallway</td><td class="dim">Two marks plus a squiggle at the door <span class="qn">1</span></td></tr>
+        <tr><td>Hallway</td><td>Central spine, front to back, wider at the front</td><td>All five left rooms, Sofia's, the lounge corner, and straight into Living at the back</td><td class="dim">No wall drawn between the hall's end and Living <span class="qn">3</span></td></tr>
+        <tr><td>My Room</td><td>Front-left</td><td>Hallway</td><td class="dim">Door on the hall wall</td></tr>
+        <tr><td>Christo's Room</td><td>Mid-left, behind My Room</td><td>Hallway</td><td class="dim">Door on the hall wall</td></tr>
+        <tr><td>Laundry</td><td>Mid-left, behind Christo's</td><td>Hallway, and the spare toilet</td><td class="dim">Marks on the wall it shares with the toilet <span class="qn">2</span></td></tr>
+        <tr><td>Spare Toilet</td><td>Between laundry and bathroom</td><td>Laundry only, as drawn</td><td class="dim">No marks on its hall wall <span class="qn">2</span></td></tr>
+        <tr><td>Bathroom</td><td>Rear-left</td><td>Hallway</td><td class="dim">Door on the hall wall</td></tr>
+        <tr><td>Sofia's Room</td><td>Front-right</td><td>The wide front part of the hall</td><td class="dim">Door on its left wall</td></tr>
+        <tr><td>Lounge</td><td>Right, behind Sofia's</td><td>Hallway through the angled corner, and the kitchen</td><td class="dim">Marks on the diagonal <span class="qn">6</span> and on the kitchen wall <span class="qn">5</span></td></tr>
+        <tr><td>Kitchen</td><td>Right, middle</td><td>Lounge, and open to Living across the bench</td><td class="dim">Long rectangle at its top edge <span class="qn">8</span></td></tr>
+        <tr><td>Living</td><td>Rear, full width behind the hall</td><td>Hallway (open), back door to the verandah</td><td class="dim">Back door marks sit above the hall <span class="qn">4</span></td></tr>
+        <tr><td>Rear Verandah</td><td>Across the whole back</td><td>Back door, garden</td><td class="dim">Labelled, no door marks to the garden, so open</td></tr>
+        <tr><td>Garden</td><td>Behind the verandah</td><td>Verandah, shed, and maybe the side path</td><td class="dim"><span class="qn">7</span> <span class="qn">9</span></td></tr>
+        <tr><td>Shed</td><td>Rear-right of the garden</td><td>Door on its garden side</td><td class="dim">Door swing drawn on the left face</td></tr>
+        <tr><td>Bins</td><td>Side path beside the kitchen</td><td>Side gate from the front yard</td><td class="dim">Three squares, gate marks on the fence line <span class="qn">7</span></td></tr>
+      </tbody>
+    </table>
+  </div>
+
+  <h2>3. Ten things to confirm</h2>
+  <ol class="q">
+    <li><span class="qn">1</span><b>Front door.</b> There are two sets of marks on the porch wall plus a squiggle. Is that one door with a screen door, or two openings? I've drawn one.<span class="ans">Matters for: nothing in the routing. Just accuracy.</span></li>
+    <li><span class="qn">2</span><b>Spare toilet.</b> The only door marks are on the wall it shares with the laundry, none on the hall. So you reach it through the laundry?<span class="ans">Matters for: whether the toilet is a laundry side-trip or its own stop off the hall.</span></li>
+    <li><span class="qn">3</span><b>Hall into Living.</b> No wall where the hall ends, so the hallway opens straight into the living area. Right?<span class="ans">Matters for: the back half of the lap. If it's open, Living is the natural pivot between the two sides of the house.</span></li>
+    <li><span class="qn">4</span><b>Back door.</b> The marks on the rear wall sit above the hallway. Is that the only way onto the verandah, or does Living have its own sliding door too?<span class="ans">Matters for: how you get from the kitchen end to the garden.</span></li>
+    <li><span class="qn">5</span><b>Kitchen to lounge.</b> A doorway, or a wide opening?<span class="ans">Matters for: nothing much. Curiosity.</span></li>
+    <li><span class="qn">6</span><b>Lounge corner.</b> The angled wall with marks. A door from the hall into the lounge there?<span class="ans">Matters for: whether Sofia's and the lounge are visited as one front-right cluster.</span></li>
+    <li><span class="qn">7</span><b>Bins.</b> They sit on the side path by the kitchen. Do you reach them only through the side gate from the front, or can you walk down the side path from the garden as well?<span class="ans">Matters for: a lot. If the garden connects to the side path, the bins slot neatly between the shed and coming back in the front. If not, bins are a separate trip out the front door.</span></li>
+    <li><span class="qn">8</span><b>The rectangle.</b> Across the top of the kitchen. Island bench dividing kitchen from living?<span class="ans">Matters for: nothing in the routing. Confirms the open plan.</span></li>
+    <li><span class="qn">9</span><b>Left side.</b> Nothing is drawn down the left of the house. Wall on the boundary, or a path you never use?<span class="ans">Matters for: whether there's a second way round. I've assumed not.</span></li>
+    <li><span class="qn">10</span><b>Kitchen and Living.</b> The app treats them as one zone. Your drawing shows them as two rooms with a bench between. Keep as one, or split so "wipe the bench" and "tidy the couch cushions" land in different places?<span class="ans">Matters for: how fine the list groups things. My lean: keep one zone. They're three steps apart.</span></li>
+  </ol>
+
+  <h2>4. The lap: what the app does today, and what the map suggests</h2>
+  <p>The app's current order came from the text description, not from the drawing. Put on the plan, it crosses the house three times. The proposed lap is one loop: down the right side, out the back, round past the bins, back in the front, and the left wing done back to front on the way out. Lines are drawn room to room, not step by step.</p>
+  <div class="routes">
+    <figure>
+      <svg id="route-now" viewBox="40 20 860 1210" role="img" aria-label="The current walk order drawn on the plan, showing three crossings of the house between the right wing, the left wing and the back."></svg>
+      <figcaption>Figure 2. Today's order. Kitchen to bins to Christo's room is two crossings; My Room to laundry to bathroom to verandah is a third.</figcaption>
+    </figure>
+    <figure>
+      <svg id="route-next" viewBox="40 20 860 1210" role="img" aria-label="The proposed walk order drawn on the plan, a single loop down the right side, out the back, past the bins, in the front and back to front along the left wing."></svg>
+      <figcaption>Figure 3. Proposed lap. One loop. Assumes the side path joins the garden (question 7); if it doesn't, bins become a short out-and-back from the porch at the end.</figcaption>
+    </figure>
+  </div>
+
+  <div class="tablewrap" style="margin-top:16px">
+    <table>
+      <thead><tr><th>Stop</th><th>Today</th><th>Proposed</th></tr></thead>
+      <tbody id="order-rows"></tbody>
+    </table>
+  </div>
+
+  <p style="margin-top:16px">Two things the order table doesn't show, because they sit above it: anything that runs unattended (a wash, the dishwasher) still goes first wherever it lives, and anything with a deadline goes next. And "start where you are" still rotates this lap to begin in whichever room you say you're in.</p>
+
+  <h2>5. What happens once you confirm</h2>
+  <div class="note">Answer the ten questions in any form you like, corrections to the drawing included, and I'll cut Revision B of this sheet, file it in the repo beside your original photo, and rebuild the zone order in the app and the backend from it. Nothing changes in the app until then.</div>
+
+</div>
+
+<script>
+  // Both route figures reuse the plan geometry; only the overlay differs.
+  const plan = document.getElementById('plan');
+
+  const P = {
+    porch: [290, 1050], hall: [400, 965], sofia: [600, 965], lounge: [600, 800], kitchen: [600, 640],
+    living: [520, 470], backdoor: [370, 380], verandah: [420, 340], garden: [400, 200], shed: [600, 170],
+    sidetop: [790, 320], bins: [790, 620], sidegate: [790, 920], frontdoor: [365, 1010],
+    bathroom: [220, 470], toilet: [220, 595], laundry: [220, 685], christo: [220, 810], myroom: [220, 945],
+    hallmid: [370, 700]
+  };
+
+  // Today's order, as the app has it now. Stops are labelled; joins are the walks between them.
+  const now = {
+    stops: ['porch', 'hall', 'sofia', 'lounge', 'kitchen', 'bins', 'christo', 'myroom', 'laundry', 'toilet', 'bathroom', 'verandah', 'garden', 'shed'],
+    path: ['porch', 'hall', 'sofia', 'lounge', 'kitchen', 'living', 'backdoor', 'verandah', 'sidetop', 'bins', 'sidetop', 'verandah', 'backdoor', 'hallmid', 'christo', 'myroom', 'laundry', 'toilet', 'bathroom', 'backdoor', 'verandah', 'garden', 'shed'],
+    labels: { kitchen: 'Kitchen / Living' }
+  };
+
+  // Proposed lap: one loop.
+  const next = {
+    stops: ['porch', 'hall', 'sofia', 'lounge', 'kitchen', 'living', 'verandah', 'garden', 'shed', 'bins', 'bathroom', 'toilet', 'laundry', 'christo', 'myroom'],
+    path: ['porch', 'hall', 'sofia', 'lounge', 'kitchen', 'living', 'backdoor', 'verandah', 'garden', 'shed', 'sidetop', 'bins', 'sidegate', 'porch', 'hallmid', 'bathroom', 'toilet', 'laundry', 'christo', 'myroom', 'frontdoor'],
+    labels: {}
+  };
+
+  const names = {
+    porch: 'Porch', hall: 'Hallway', sofia: "Sofia's Room", lounge: 'Lounge', kitchen: 'Kitchen', living: 'Living',
+    verandah: 'Rear Verandah', garden: 'Garden', shed: 'Shed', bins: 'Bins', bathroom: 'Bathroom', toilet: 'Spare Toilet',
+    laundry: 'Laundry', christo: "Christo's Room", myroom: 'My Room'
+  };
+
+  function draw(svgId, route, cls) {
+    const svg = document.getElementById(svgId);
+    for (const child of plan.children) {
+      if (child.id === 'qmarks') continue;
+      svg.appendChild(child.cloneNode(true));
+    }
+    const ns = 'http://www.w3.org/2000/svg';
+    const line = document.createElementNS(ns, 'polyline');
+    line.setAttribute('class', 'route ' + cls);
+    line.setAttribute('points', route.path.map(k => P[k].join(',')).join(' '));
+    svg.appendChild(line);
+    route.stops.forEach((k, i) => {
+      const g = document.createElementNS(ns, 'g');
+      g.setAttribute('class', 'stop ' + cls);
+      const [x, y] = P[k];
+      g.setAttribute('transform', 'translate(' + x + ' ' + y + ')');
+      const c = document.createElementNS(ns, 'circle');
+      c.setAttribute('r', '12');
+      const t = document.createElementNS(ns, 'text');
+      t.textContent = String(i + 1);
+      g.append(c, t);
+      svg.appendChild(g);
+    });
+  }
+
+  draw('route-now', now, 'now');
+  draw('route-next', next, 'next');
+
+  const rows = document.getElementById('order-rows');
+  const len = Math.max(now.stops.length, next.stops.length);
+  for (let i = 0; i < len; i++) {
+    const tr = document.createElement('tr');
+    const a = now.stops[i], b = next.stops[i];
+    tr.innerHTML = '<td class="num">' + (i + 1) + '</td><td>' + (a ? (now.labels[a] || names[a]) : '') + '</td><td>' + (b ? (next.labels[b] || names[b]) : '') + '</td>';
+    rows.appendChild(tr);
+  }
+  const tail = document.createElement('tr');
+  tail.innerHTML = '<td class="num">' + (len + 1) + '</td><td class="dim">Errands</td><td class="dim">Errands</td>';
+  rows.appendChild(tail);
+</script>
