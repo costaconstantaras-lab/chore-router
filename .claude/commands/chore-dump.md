@@ -1,164 +1,87 @@
 ---
-description: "Paste a voice transcript or brain dump of household tasks. Claude will extract, sequence, and route them through the house in the most efficient order, then push the session to the Chore Router app."
+description: "Paste a voice transcript or brain dump of household tasks. Claude extracts new chores, things already done, and things to drop, then pushes the changes to the Chore Router app, which routes them through the house."
 ---
 
 # Chore Dump
 
-Process a voice transcript or freeform brain dump of household tasks into a sequenced chore run for Costa's home at Collier Crescent, Brunswick West.
+Turn a rambling transcript into changes to Costa's chore list at Collier Crescent, Brunswick West, then push them to the app.
+
+The app can do this itself now (there is a dictation box in it). This command is the second door: for long pastes, for when you're already at the keyboard, or when the backend has no API key set.
+
+Backend URL: `https://script.google.com/macros/s/AKfycbw1D0d7ZWbNowpXZpuvmz2VFbZpBlo0leDdfjyUgmc2sNgOnmNXBNQWcDz1ia17JzxsKw/exec`
 
 ---
 
-## Step 1 — Read the input
+## Step 1 — Fetch the current list
 
-The user has pasted a transcript or brain dump. It may be rambling, unstructured, repetitive, or contain filler words. Work with it as-is.
-
-Detect session mode from the text:
-- If it contains "new session" → `action = create_session` (replaces existing tasks in the app)
-- Otherwise → `action = append_tasks` (adds to the current session)
-
----
-
-## Step 2 — Detect session mode and extract tasks
-
-**Session mode:**
-- If the transcript contains "new session" → always start fresh (replaces whatever is in the app)
-- Otherwise → fetch the existing active tasks first using a GET request:
-  ```bash
-  curl -s "https://script.google.com/macros/s/AKfycbw1D0d7ZWbNowpXZpuvmz2VFbZpBlo0leDdfjyUgmc2sNgOnmNXBNQWcDz1ia17JzxsKw/exec?action=get_active"
-  ```
-  Combine any existing incomplete tasks with the new ones from the transcript, re-sequence them all together, then post as a new session.
-
-**Extract tasks from the transcript:**
-- Ignore filler words ("um", "uh", "like", "yeah", "you know")
-- Collapse duplicates — if the same task is mentioned twice, list it once
-- Ignore non-task content (thinking out loud, asides, greetings)
-- Write each task as a clean imperative: "Clean oven", "Take out recycling", "Change Christo's sheets"
-- If a task involves moving something between rooms, split it into a pickup note and a drop-off note, and flag as a **carry**
-
----
-
-## Step 3 — Assign zones and sequence tasks
-
-Use the house layout below. Assign each task to its zone, then sequence zones in the default routing order. Assign `sort_order` values as sequential integers across all zones (1, 2, 3...) following the route.
-
-### House Layout: Collier Crescent, Brunswick West
-
-The house runs front (south, Collier Crescent) to rear (north, garden). A central **Hallway** is the main spine connecting all rooms.
-
-**Zone routing order (default — adjust for dependencies):**
-
-| # | Zone | Notes |
-|---|------|-------|
-| 1 | Porch / Front Exterior | Front entry, letterbox |
-| 2 | Hallway | Central corridor |
-| 3 | Sofia's Room | Front-right |
-| 4 | Lounge | Connects to Hallway and Kitchen |
-| 5 | Kitchen / Living | Open plan; connects to Lounge and Rear Verandah |
-| 6 | Bins | Right-side exterior, near Kitchen |
-| 7 | Christo's Room | Mid-left off Hallway |
-| 8 | My Room | Front-left off Hallway (Costa's room) |
-| 9 | Laundry | Mid-left; flag if a wash should start early |
-| 10 | Spare Toilet | Left side |
-| 11 | Bathroom | Rear-left |
-| 12 | Rear Verandah | Connects Kitchen to Garden |
-| 13 | Garden | Rear exterior |
-| 14 | Shed | Rear, accessed via Garden |
-| 15 | Errands | Off-site tasks |
-
-**Routing adjustments to apply:**
-- If Task B requires Task A's output (e.g. strip Christo's bed → carry linen to Laundry → start wash), keep them in dependency order even if that means revisiting a zone
-- Wet/cleaning tasks go last in a zone (don't walk back through a wet floor)
-- Bins run is best combined with a Kitchen pass
-- If laundry needs a full cycle, flag it at the START of the run so the wash runs while other chores happen — even if the Laundry zone comes later in the route
-
-**Carry items:**
-Any item picked up in one zone and dropped in another should be noted as a carry in `carry_note` on the pickup task (e.g. "Carry linen → Laundry"). The app displays these in a Carry Summary at the end.
-
----
-
-## Step 4 — Build the task list
-
-Produce the full payload object:
-
-```json
-{
-  "action": "new_session",
-  "date": "2026-05-16",
-  "tasks": [
-    {
-      "zone": "Christo's Room",
-      "task": "Strip Christo's bed",
-      "carry_note": "Carry linen → Laundry",
-      "sort_order": 7
-    },
-    {
-      "zone": "Laundry",
-      "task": "Start bed linen wash",
-      "carry_note": "",
-      "sort_order": 9
-    }
-  ]
-}
+```bash
+curl -s "https://script.google.com/macros/s/AKfycbw1D0d7ZWbNowpXZpuvmz2VFbZpBlo0leDdfjyUgmc2sNgOnmNXBNQWcDz1ia17JzxsKw/exec?action=get_active"
 ```
 
-Fields (all required):
-- `action` — always `"new_session"`
-- `date` — today's date as a string (YYYY-MM-DD)
-- `tasks[].zone` — must match one of the zone names from the table above exactly
-- `tasks[].task` — clean imperative string
-- `tasks[].carry_note` — string, use `""` if nothing to carry
-- `tasks[].sort_order` — integer, sequential across all tasks in route order
+Each task has a `task_id`, `zone`, `task` and `completed`. You need the ids to complete or remove things.
 
----
+## Step 2 — Read the transcript and decide the changes
 
-## Step 5 — Display the organised plan
+The transcript is messy: filler, repeats, corrections, asides. Work out what Costa means.
 
-Show the chore run to the user in this format before attempting to push it:
+- **mode** — `"new"` only if he clearly wants to start over ("new session", "start fresh", "clear the list"). Otherwise `"append"`.
+- **add** — genuinely new tasks. Short imperatives, UK English ("Clean oven", "Change Christo's sheets"). One entry per physical job. Don't add anything already on the list. If something moves between rooms, put the task in the pickup zone with `carry_note` like `"Carry linen → Laundry"`, and add a task in the destination only if there's work there. Set `start_early: true` on anything that runs unattended and should kick off first (washing machine, dishwasher, soaking).
+- **complete** — ids of existing tasks he says are done. Match on meaning. If it's not on the list, don't add it.
+- **remove** — ids he clearly wants dropped ("forget the oven"). Never a guess.
+
+Zones (must match exactly):
+
+| Zone | What's in it |
+|---|---|
+| Porch / Front Exterior | front door, letterbox, front steps, front garden |
+| Hallway | the corridor itself, coat hooks |
+| Sofia's Room | |
+| Lounge | couch, TV |
+| Kitchen / Living | kitchen, dining, benches, oven, fridge, dishwasher, living area |
+| Bins | bins out or in, recycling, compost |
+| Christo's Room | |
+| My Room | Costa's bedroom |
+| Laundry | washing machine, dryer, ironing, hanging out washing |
+| Spare Toilet | |
+| Bathroom | shower, bath, basin |
+| Rear Verandah | back deck, outdoor furniture |
+| Garden | lawn, weeds, plants, clothesline |
+| Shed | |
+| Errands | anything away from the house |
+
+You don't sequence anything. The backend walks the house in the order above, puts `start_early` tasks at the top, and keeps existing order within a zone. If Costa gives a real dependency the zone order doesn't capture, say so in the summary rather than fighting the router.
+
+"Clean the whole house" means one surfaces-and-vacuum task per indoor room plus a mop for Kitchen / Living, Bathroom, Spare Toilet and Laundry. Ask whether it's a blitz or a deep clean if it matters.
+
+## Step 3 — Show the plan, briefly
 
 ```
-Chore Run: [today's date]
-Mode: [New Session / Appending to current]
-
-[Zone Name]
-1. Task
-2. Task (carry: item → destination)
-
-[Next Zone]
-3. Task
-...
-
---- Carry Summary ---
-• Pick up [item] from [Zone] → drop at [Zone]
+Adding (4): Clean oven · Kitchen / Living, ...
+Done (2): Take bins out, ...
+Dropping (0)
+Mode: append
 ```
 
-Ask the user to confirm the list looks right before pushing. If they say yes or give the go-ahead, proceed to Step 6.
+If the transcript was unambiguous, push straight away. Ask only when a task has no obvious room or a removal is a guess.
 
----
-
-## Step 6 — Push to the Chore Router app
-
-Use the Bash tool to POST the payload to the Apps Script backend. Write the JSON to a temp file first to avoid shell escaping issues:
+## Step 4 — Push
 
 ```bash
 cat > /tmp/chore_payload.json << 'PAYLOAD'
-{ ...the full JSON payload from Step 4... }
+{
+  "action": "apply",
+  "mode": "append",
+  "add": [
+    { "zone": "Kitchen / Living", "task": "Clean oven", "carry_note": "", "start_early": false }
+  ],
+  "complete": ["abc123def456"],
+  "remove": []
+}
 PAYLOAD
 
-curl -s -L -X POST \
-  -H "Content-Type: text/plain" \
+curl -s -L -X POST -H "Content-Type: text/plain" \
   --data-binary @/tmp/chore_payload.json \
   "https://script.google.com/macros/s/AKfycbw1D0d7ZWbNowpXZpuvmz2VFbZpBlo0leDdfjyUgmc2sNgOnmNXBNQWcDz1ia17JzxsKw/exec"
 ```
 
-**If the POST succeeds** (response contains `"success":true`): tell Costa the tasks are live in the Chore Router app and open the app to check.
-
-**If the POST returns an error**: show the error text, display the full organised task list so nothing is lost, and ask Costa what to do.
-
----
-
-## Edge Cases
-
-- **"Clean the whole house"** — expand to a full sweep in route order: surfaces + vacuum each room, mop wet areas last. Confirm with the user whether it's a quick blitz or deep clean.
-- **Task with no clear room** — ask Costa to clarify rather than guess.
-- **Laundry dependency** — always check if a wash should start at the beginning of the run. If so, set its `sort_order` to 1 even though Laundry is zone 9 in the route.
-- **Outside tasks (Bins, Garden, Shed, Errands)** — always group at the end unless there's a specific time dependency (e.g. bins out before the truck).
+The response includes the full routed `tasks` list and a `changes` object. Show the list in route order, grouped by zone, with carry notes inline. If `success` is false, show the error and the plan so nothing is lost.

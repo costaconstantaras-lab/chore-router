@@ -1,46 +1,99 @@
 <!DOCTYPE html>
-<html lang="en">
+<html lang="en-AU">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, interactive-widget=resizes-content">
   <meta name="theme-color" content="#1a1614">
   <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <meta http-equiv="Cache-Control" content="no-cache">
   <title>Chore Router</title>
   <style>
+    :root {
+      --bg: #1a1614;
+      --bg-raised: #221e1b;
+      --line: #2e2825;
+      --ink: #f0ebe3;
+      --ink-soft: #c8b89a;
+      --ink-muted: #8b7355;
+      --accent: #c8956c;
+      --accent-ink: #1a1614;
+      --danger: #c96a5a;
+      --ok: #7fa66b;
+      --radius: 14px;
+      --composer-h: 0px;
+    }
+
     *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
+    html, body { height: 100%; }
+
     body {
-      background: #1a1614;
-      color: #f0ebe3;
-      font-family: -apple-system, 'Segoe UI', sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+      font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
       font-size: 16px;
+      -webkit-font-smoothing: antialiased;
+      display: flex;
+      flex-direction: column;
       min-height: 100vh;
-      padding-bottom: env(safe-area-inset-bottom, 16px);
+      min-height: 100dvh;
     }
+
+    button {
+      font: inherit;
+      color: inherit;
+      background: none;
+      border: 0;
+      cursor: pointer;
+      touch-action: manipulation;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    /* ---------- header ---------- */
 
     #header {
       position: sticky;
       top: 0;
-      background: #1a1614;
-      padding: 20px 16px 0;
       z-index: 10;
-      border-bottom: 1px solid #2e2825;
-      padding-bottom: 12px;
+      background: var(--bg);
+      padding: calc(env(safe-area-inset-top, 0px) + 16px) 16px 12px;
+      border-bottom: 1px solid var(--line);
     }
 
-    h1 {
-      font-size: 18px;
-      font-weight: 600;
-      letter-spacing: 0.04em;
-      color: #c8956c;
-      text-transform: uppercase;
+    #header-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
       margin-bottom: 12px;
     }
 
+    h1 {
+      font-size: 15px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      color: var(--accent);
+      text-transform: uppercase;
+    }
+
+    .header-actions { display: flex; gap: 6px; }
+
+    .chip {
+      font-size: 13px;
+      font-weight: 600;
+      color: var(--ink-muted);
+      padding: 6px 10px;
+      border-radius: 999px;
+      border: 1px solid var(--line);
+      min-height: 32px;
+    }
+    .chip:active { background: var(--bg-raised); }
+    .chip.on { color: var(--accent); border-color: var(--accent); }
+
     #progress-bar-container {
       height: 6px;
-      background: #2e2825;
+      background: var(--line);
       border-radius: 3px;
       overflow: hidden;
       margin-bottom: 8px;
@@ -48,7 +101,7 @@
 
     #progress-bar {
       height: 100%;
-      background: #c8956c;
+      background: var(--accent);
       border-radius: 3px;
       width: 0%;
       transition: width 0.3s ease;
@@ -56,259 +109,443 @@
 
     #progress-label {
       font-size: 13px;
-      color: #8b7355;
+      color: var(--ink-muted);
       letter-spacing: 0.02em;
+      min-height: 16px;
     }
 
-    #loading {
-      padding: 48px 16px;
+    /* ---------- list ---------- */
+
+    #content {
+      flex: 1;
+      padding-bottom: calc(var(--composer-h) + 24px);
+    }
+
+    .zone-section { margin-top: 4px; }
+
+    .zone-header {
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.12em;
+      color: var(--ink-muted);
+      text-transform: uppercase;
+      padding: 18px 16px 6px;
+    }
+
+    .task-row {
+      display: flex;
+      align-items: flex-start;
+      gap: 14px;
+      min-height: 56px;
+      padding: 15px 16px;
+      border-bottom: 1px solid var(--line);
+      user-select: none;
+      -webkit-user-select: none;
+      transition: background 0.15s;
+      line-height: 1.4;
+    }
+    .task-row:active { background: var(--bg-raised); }
+
+    .task-tick {
+      flex: none;
+      width: 22px;
+      height: 22px;
+      margin-top: 1px;
+      border: 2px solid #4a3f36;
+      border-radius: 50%;
+      transition: border-color 0.2s, background 0.2s;
+    }
+
+    .task-main { flex: 1; min-width: 0; }
+    .task-label { display: block; }
+    .task-carry {
+      display: block;
+      margin-top: 3px;
+      font-size: 13px;
+      color: var(--accent);
+    }
+    .task-flag {
+      display: inline-block;
+      margin-left: 6px;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      color: var(--accent);
+      text-transform: uppercase;
+      vertical-align: 1px;
+    }
+
+    .task-row.completed .task-main { opacity: 0.35; }
+    .task-row.completed .task-tick { background: var(--accent); border-color: var(--accent); }
+    .task-row.completed .task-label { text-decoration: line-through; }
+
+    .task-remove {
+      flex: none;
+      display: none;
+      width: 32px;
+      height: 32px;
+      margin: -5px -6px -5px 0;
+      border-radius: 50%;
+      color: var(--danger);
+      font-size: 20px;
+      line-height: 32px;
       text-align: center;
-      color: #8b7355;
-      font-size: 15px;
+    }
+    body.editing .task-remove { display: block; }
+    .task-remove:active { background: var(--bg-raised); }
+
+    .state {
+      padding: 56px 24px;
+      text-align: center;
+      color: var(--ink-muted);
+    }
+    .state p { font-size: 17px; margin-bottom: 8px; line-height: 1.4; }
+    .state .big { font-size: 40px; margin-bottom: 16px; color: var(--accent); }
+    .state .headline { font-size: 22px; color: var(--ink); font-weight: 600; margin-bottom: 8px; }
+    .state .hint { font-size: 14px; }
+    .state button.primary { margin-top: 20px; }
+
+    button.primary {
+      background: var(--accent);
+      color: var(--accent-ink);
+      font-weight: 700;
+      padding: 12px 20px;
+      border-radius: 999px;
+      min-height: 44px;
+    }
+    button.primary:disabled { opacity: 0.4; }
+
+    /* ---------- change summary ---------- */
+
+    #changes {
+      position: fixed;
+      left: 12px;
+      right: 12px;
+      bottom: calc(var(--composer-h) + 12px);
+      z-index: 20;
+      background: var(--bg-raised);
+      border: 1px solid var(--line);
+      border-radius: var(--radius);
+      padding: 14px 16px;
+      box-shadow: 0 12px 32px rgba(0,0,0,0.45);
+      transform: translateY(12px);
+      opacity: 0;
+      pointer-events: none;
+      transition: transform 0.2s, opacity 0.2s;
+    }
+    #changes.show { transform: none; opacity: 1; pointer-events: auto; }
+    #changes.error { border-color: var(--danger); }
+
+    #changes .title {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      font-size: 13px;
+      font-weight: 700;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin-bottom: 8px;
+    }
+    #changes.error .title { color: var(--danger); }
+    #changes .close { color: var(--ink-muted); font-size: 18px; padding: 0 4px; }
+    #changes ul { list-style: none; }
+    #changes li { font-size: 14px; color: var(--ink-soft); padding: 3px 0; line-height: 1.4; }
+    #changes li b { color: var(--ink); font-weight: 600; }
+    #changes .note { margin-top: 8px; font-size: 13px; color: var(--ink-muted); font-style: italic; }
+
+    /* ---------- composer ---------- */
+
+    #composer {
+      position: fixed;
+      left: 0;
+      right: 0;
+      bottom: 0;
+      z-index: 15;
+      background: var(--bg);
+      border-top: 1px solid var(--line);
+      padding: 10px 12px calc(env(safe-area-inset-bottom, 0px) + 10px);
+    }
+
+    #composer-inner {
+      display: flex;
+      align-items: flex-end;
+      gap: 8px;
+      background: var(--bg-raised);
+      border: 1px solid var(--line);
+      border-radius: 22px;
+      padding: 6px 6px 6px 14px;
+    }
+    #composer-inner:focus-within { border-color: #4a3f36; }
+
+    #dump {
+      flex: 1;
+      background: none;
+      border: 0;
+      outline: none;
+      color: var(--ink);
+      font: inherit;
+      font-size: 16px;
+      line-height: 1.4;
+      resize: none;
+      max-height: 40vh;
+      padding: 8px 0;
+    }
+    #dump::placeholder { color: var(--ink-muted); }
+
+    .icon-btn {
+      flex: none;
+      width: 40px;
+      height: 40px;
+      border-radius: 50%;
+      display: grid;
+      place-items: center;
+      color: var(--ink-muted);
+    }
+    .icon-btn svg { width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+    .icon-btn:active { background: var(--line); }
+
+    #mic.listening { color: var(--danger); animation: pulse 1.2s ease-in-out infinite; }
+    @keyframes pulse { 50% { opacity: 0.45; } }
+
+    #send { background: var(--accent); color: var(--accent-ink); }
+    #send:disabled { background: var(--line); color: var(--ink-muted); }
+    #send.busy svg { animation: spin 0.8s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+
+    #composer-hint {
+      font-size: 12px;
+      color: var(--ink-muted);
+      padding: 6px 14px 0;
+      min-height: 18px;
     }
 
     .spinner {
       display: inline-block;
       width: 24px;
       height: 24px;
-      border: 2px solid #2e2825;
-      border-top-color: #c8956c;
+      border: 2px solid var(--line);
+      border-top-color: var(--accent);
       border-radius: 50%;
       animation: spin 0.8s linear infinite;
       margin-bottom: 12px;
-    }
-
-    @keyframes spin { to { transform: rotate(360deg); } }
-
-    #content {
-      padding: 0 0 16px;
-    }
-
-    .zone-section {
-      margin-top: 8px;
-    }
-
-    .zone-header {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      color: #8b7355;
-      text-transform: uppercase;
-      padding: 16px 16px 8px;
-    }
-
-    .task-row {
-      min-height: 56px;
-      padding: 16px;
-      display: flex;
-      align-items: center;
-      border-bottom: 1px solid #2e2825;
-      cursor: pointer;
-      touch-action: manipulation;
-      user-select: none;
-      -webkit-user-select: none;
-      transition: background 0.15s;
-      font-size: 16px;
-      line-height: 1.4;
-    }
-
-    .task-row:active {
-      background: #221e1b;
-    }
-
-    .task-row::before {
-      content: '';
-      display: inline-block;
-      width: 22px;
-      height: 22px;
-      min-width: 22px;
-      border: 2px solid #4a3f36;
-      border-radius: 50%;
-      margin-right: 14px;
-      transition: border-color 0.2s, background 0.2s;
-    }
-
-    .task-row.completed {
-      opacity: 0.35;
-    }
-
-    .task-row.completed::before {
-      background: #c8956c;
-      border-color: #c8956c;
-    }
-
-    .task-row.completed .task-label {
-      text-decoration: line-through;
-    }
-
-    .task-label {
-      flex: 1;
-    }
-
-    .empty-state, .error-state, .complete-state {
-      padding: 64px 24px;
-      text-align: center;
-      color: #8b7355;
-    }
-
-    .empty-state p, .error-state p, .complete-state p {
-      font-size: 17px;
-      margin-bottom: 8px;
-    }
-
-    .complete-state .big {
-      font-size: 40px;
-      margin-bottom: 16px;
-    }
-
-    .complete-state .headline {
-      font-size: 22px;
-      color: #f0ebe3;
-      font-weight: 600;
-      margin-bottom: 8px;
-    }
-
-    #carry-summary {
-      margin: 8px 0 0;
-      border-top: 1px solid #2e2825;
-      padding: 16px;
-    }
-
-    #carry-summary h2 {
-      font-size: 11px;
-      font-weight: 700;
-      letter-spacing: 0.12em;
-      color: #8b7355;
-      text-transform: uppercase;
-      margin-bottom: 12px;
-    }
-
-    .carry-item {
-      font-size: 14px;
-      color: #c8b89a;
-      margin-bottom: 8px;
-      line-height: 1.5;
-    }
-
-    .carry-item strong {
-      color: #f0ebe3;
-      font-weight: 500;
     }
   </style>
 </head>
 <body>
 
 <div id="header">
-  <h1>Chore Router</h1>
-  <div id="progress-bar-container">
-    <div id="progress-bar"></div>
+  <div id="header-row">
+    <h1>Chore Router</h1>
+    <div class="header-actions">
+      <button class="chip" id="edit-btn" type="button">Edit</button>
+      <button class="chip" id="fresh-btn" type="button">Start fresh</button>
+    </div>
   </div>
+  <div id="progress-bar-container"><div id="progress-bar"></div></div>
   <div id="progress-label"></div>
 </div>
 
-<div id="loading">
-  <div class="spinner"></div>
-  <p>Loading...</p>
+<div id="content">
+  <div class="state" id="loading"><div class="spinner"></div><p>Loading…</p></div>
 </div>
 
-<div id="content" hidden></div>
-<div id="carry-summary" hidden></div>
+<div id="changes" role="status" aria-live="polite">
+  <div class="title"><span id="changes-title">Updated</span><button class="close" id="changes-close" type="button" aria-label="Dismiss">×</button></div>
+  <ul id="changes-list"></ul>
+  <div class="note" id="changes-note" hidden></div>
+</div>
+
+<div id="composer">
+  <div id="composer-inner">
+    <textarea id="dump" rows="1" placeholder="What's on, or what's done?" autocapitalize="sentences" enterkeyhint="send"></textarea>
+    <button class="icon-btn" id="mic" type="button" aria-label="Dictate" hidden>
+      <svg viewBox="0 0 24 24"><rect x="9" y="3" width="6" height="11" rx="3"/><path d="M5 11a7 7 0 0 0 14 0"/><path d="M12 18v3"/></svg>
+    </button>
+    <button class="icon-btn" id="send" type="button" aria-label="Send" disabled>
+      <svg viewBox="0 0 24 24"><path d="M12 19V5"/><path d="M6 11l6-6 6 6"/></svg>
+    </button>
+  </div>
+  <div id="composer-hint"></div>
+</div>
 
 <script>
-  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw1D0d7ZWbNowpXZpuvmz2VFbZpBlo0leDdfjyUgmc2sNgOnmNXBNQWcDz1ia17JzxsKw/exec';
-  const CACHE_KEY = 'chore_router_cache';
+  // =========================================================================
+  // Config
+  // =========================================================================
 
-  let state = { session: null, tasks: [] };
+  const APPS_SCRIPT_URL = 'https://script.google.com/macros/s/AKfycbw1D0d7ZWbNowpXZpuvmz2VFbZpBlo0leDdfjyUgmc2sNgOnmNXBNQWcDz1ia17JzxsKw/exec';
+  const CACHE_KEY = 'chore_router_cache_v2';
+  const QUEUE_KEY = 'chore_router_queue_v2';
+  const MOCK = /[?&]mock\b/.test(location.search);
 
   const $ = id => document.getElementById(id);
+
+  // =========================================================================
+  // API (real + mock). Everything returns { session, tasks, changes? }.
+  // =========================================================================
+
+  const realApi = {
+    async getActive() {
+      const res = await fetch(APPS_SCRIPT_URL + '?action=get_active&_=' + Date.now());
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (data.success === false) throw new Error(data.error);
+      return data;
+    },
+    async post(payload) {
+      const res = await fetch(APPS_SCRIPT_URL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body: JSON.stringify(payload)
+      });
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const data = await res.json();
+      if (data.success === false) throw new Error(data.error || 'Something went wrong');
+      return data;
+    }
+  };
+
+  // Mock backend for UI work: open index.html?mock and nothing touches the sheet.
+  const mockApi = (() => {
+    let session = { session_id: 'mock', date: '2026-01-01', status: 'active' };
+    let tasks = [
+      { task_id: 'a1', zone: 'Laundry', task: 'Start bed linen wash', carry_note: '', completed: false, priority: 'start' },
+      { task_id: 'a2', zone: 'Kitchen / Living', task: 'Clean oven', carry_note: '', completed: false, priority: '' },
+      { task_id: 'a3', zone: 'Kitchen / Living', task: 'Wipe benches', carry_note: '', completed: true, priority: '' },
+      { task_id: 'a4', zone: "Christo's Room", task: "Strip Christo's bed", carry_note: 'Carry linen → Laundry', completed: false, priority: '' },
+      { task_id: 'a5', zone: 'Bins', task: 'Take bins out', carry_note: '', completed: false, priority: '' }
+    ];
+    const seq = () => tasks.forEach((t, i) => { t.sort_order = i + 1; });
+    const wait = ms => new Promise(r => setTimeout(r, ms));
+    const snapshot = changes => { seq(); return { session, tasks: JSON.parse(JSON.stringify(tasks)), changes }; };
+    const empty = () => ({ mode: 'append', added: [], completed: [], uncompleted: [], removed: [], note: '' });
+    return {
+      async getActive() { await wait(200); return snapshot(); },
+      async post(p) {
+        await wait(p.action === 'dictate' ? 1200 : 150);
+        const ch = empty();
+        const find = id => tasks.find(t => t.task_id === id);
+        if (p.action === 'dictate') {
+          const text = p.text.toLowerCase();
+          if (/new session|start fresh|clear the list/.test(text)) { ch.mode = 'new'; tasks = []; }
+          tasks.forEach(t => {
+            const key = t.task.toLowerCase().split(' ').slice(-1)[0];
+            if (!t.completed && /done|did|finished/.test(text) && text.includes(key)) { t.completed = true; ch.completed.push(t.task); }
+          });
+          p.text.split(/,|\band\b|\n|\./).map(s => s.trim()).filter(s => s.length > 3 && !/done|did|finished/.test(s)).forEach((s, i) => {
+            const task = s.charAt(0).toUpperCase() + s.slice(1);
+            tasks.push({ task_id: 'm' + Date.now() + i, zone: 'Kitchen / Living', task, carry_note: '', completed: false, priority: '' });
+            ch.added.push({ task, zone: 'Kitchen / Living' });
+          });
+          ch.note = 'Mock mode: everything lands in the kitchen.';
+        }
+        if (p.action === 'apply' && p.mode === 'new') { ch.mode = 'new'; tasks = []; }
+        if (p.action === 'complete_task') { const t = find(p.task_id); if (t) { t.completed = true; ch.completed.push(t.task); } }
+        if (p.action === 'uncomplete_task') { const t = find(p.task_id); if (t) { t.completed = false; ch.uncompleted.push(t.task); } }
+        if (p.action === 'remove_task') { const t = find(p.task_id); if (t) { tasks = tasks.filter(x => x !== t); ch.removed.push(t.task); } }
+        return snapshot(ch);
+      }
+    };
+  })();
+
+  const api = MOCK ? mockApi : realApi;
+
+  // =========================================================================
+  // State
+  // =========================================================================
+
+  let state = { session: null, tasks: [] };
+  let editing = false;
+  let busy = false;
 
   window.addEventListener('DOMContentLoaded', init);
 
   async function init() {
-    const cached = loadCache();
-    if (cached) {
-      hideLoading();
-      state = cached;
-      renderAll(state);
-    }
+    bindComposer();
+    bindHeader();
+    setupMic();
+    measureComposer();
 
-    try {
-      const fresh = await fetchActive();
-      saveCache(fresh);
-      state = fresh;
-      hideLoading();
-      renderAll(state);
-    } catch (err) {
-      hideLoading();
-      if (!cached) {
-        showError('Could not load chores.<br>Check your connection.');
-      }
-    }
-  }
+    const cached = loadJSON(CACHE_KEY);
+    if (cached) { state = cached; renderAll(); }
 
-  async function fetchActive() {
-    const res = await fetch(APPS_SCRIPT_URL + '?action=get_active');
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
-  }
+    await flushQueue();
+    await refresh({ silent: !!cached });
 
-  async function postAction(payload) {
-    const res = await fetch(APPS_SCRIPT_URL, {
-      method: 'POST',
-      headers: { 'Content-Type': 'text/plain' },
-      body: JSON.stringify(payload)
+    window.addEventListener('online', flushQueue);
+    document.addEventListener('visibilitychange', () => {
+      if (document.visibilityState === 'visible') refresh({ silent: true });
     });
-    if (!res.ok) throw new Error('HTTP ' + res.status);
-    return res.json();
   }
 
-  function renderAll(data) {
-    if (!data.session || !data.tasks || data.tasks.length === 0) {
-      showEmptyState();
+  async function refresh({ silent } = {}) {
+    try {
+      setState(await api.getActive());
+    } catch (err) {
+      if (!silent) showError('Could not load the list. Check your connection.');
+    }
+  }
+
+  function setState(data) {
+    state = { session: data.session || null, tasks: Array.isArray(data.tasks) ? data.tasks : [] };
+    saveJSON(CACHE_KEY, state);
+    renderAll();
+  }
+
+  // =========================================================================
+  // Rendering
+  // =========================================================================
+
+  function renderAll() {
+    renderProgress();
+    const content = $('content');
+    content.innerHTML = '';
+
+    if (!state.session || state.tasks.length === 0) {
+      content.innerHTML =
+        '<div class="state">' +
+          '<p class="headline">Nothing on the list.</p>' +
+          '<p class="hint">Tap the box below and just talk. New chores, things you\'ve done, things to forget. It sorts itself out.</p>' +
+        '</div>';
       return;
     }
-    $('content').hidden = false;
-    renderProgress(data.tasks);
-    renderTaskList(data.tasks);
-    renderCarrySummary(data.tasks);
-    if (data.tasks.every(t => t.completed)) {
-      showCompletionState();
+
+    if (state.tasks.every(t => t.completed)) {
+      content.innerHTML =
+        '<div class="state">' +
+          '<div class="big">&#10003;</div>' +
+          '<p class="headline">All done.</p>' +
+          '<p class="hint">House: 0. Costa: 1.</p>' +
+          '<button class="primary" type="button" id="fresh-inline">Start a fresh list</button>' +
+        '</div>';
+      $('fresh-inline').addEventListener('click', startFresh);
     }
-  }
 
-  function renderProgress(tasks) {
-    const total = tasks.length;
-    const done = tasks.filter(t => t.completed).length;
-    const pct = total === 0 ? 0 : Math.round((done / total) * 100);
-    $('progress-bar').style.width = pct + '%';
-    $('progress-label').textContent = done + ' of ' + total + ' done';
-  }
-
-  function renderTaskList(tasks) {
     const zones = new Map();
-    for (const t of tasks) {
+    for (const t of state.tasks) {
       if (!zones.has(t.zone)) zones.set(t.zone, []);
       zones.get(t.zone).push(t);
     }
 
-    const content = $('content');
-    content.innerHTML = '';
-
     for (const [zone, zoneTasks] of zones) {
-      const section = document.createElement('div');
+      const section = document.createElement('section');
       section.className = 'zone-section';
-
       const header = document.createElement('div');
       header.className = 'zone-header';
       header.textContent = zone;
       section.appendChild(header);
-
-      for (const task of zoneTasks) {
-        section.appendChild(buildTaskRow(task));
-      }
-
+      for (const task of zoneTasks) section.appendChild(buildTaskRow(task));
       content.appendChild(section);
     }
+  }
+
+  function renderProgress() {
+    const total = state.tasks.length;
+    const done = state.tasks.filter(t => t.completed).length;
+    const pct = total === 0 ? 0 : Math.round((done / total) * 100);
+    $('progress-bar').style.width = pct + '%';
+    $('progress-label').textContent = total ? done + ' of ' + total + ' done' : '';
   }
 
   function buildTaskRow(task) {
@@ -316,120 +553,286 @@
     row.className = 'task-row' + (task.completed ? ' completed' : '');
     row.setAttribute('role', 'button');
     row.setAttribute('tabindex', '0');
-    row.dataset.sortOrder = task.sort_order;
+    row.dataset.taskId = task.task_id;
 
+    const tick = document.createElement('span');
+    tick.className = 'task-tick';
+
+    const main = document.createElement('div');
+    main.className = 'task-main';
     const label = document.createElement('span');
     label.className = 'task-label';
     label.textContent = task.task;
-    row.appendChild(label);
+    if (task.priority === 'start') {
+      const flag = document.createElement('span');
+      flag.className = 'task-flag';
+      flag.textContent = 'first';
+      label.appendChild(document.createTextNode(' '));
+      label.appendChild(flag);
+    }
+    main.appendChild(label);
+    if (task.carry_note && task.carry_note.trim()) {
+      const carry = document.createElement('span');
+      carry.className = 'task-carry';
+      carry.textContent = task.carry_note;
+      main.appendChild(carry);
+    }
 
-    const handler = () => handleTaskTap(task);
-    row.addEventListener('click', handler);
+    const remove = document.createElement('button');
+    remove.className = 'task-remove';
+    remove.type = 'button';
+    remove.setAttribute('aria-label', 'Remove ' + task.task);
+    remove.textContent = '×';
+    remove.addEventListener('click', e => { e.stopPropagation(); removeTask(task); });
+
+    row.append(tick, main, remove);
+
+    const toggle = () => toggleTask(task);
+    row.addEventListener('click', toggle);
     row.addEventListener('keydown', e => {
-      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); handler(); }
+      if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); toggle(); }
     });
-
     return row;
   }
 
-  async function handleTaskTap(task) {
-    if (task.completed) return;
+  // =========================================================================
+  // Task actions (optimistic, queued for offline)
+  // =========================================================================
 
-    task.completed = true;
-    saveCache({ session: state.session, tasks: state.tasks });
+  function toggleTask(task) {
+    task.completed = !task.completed;
+    saveJSON(CACHE_KEY, state);
+    const row = document.querySelector('[data-task-id="' + task.task_id + '"]');
+    if (row) row.classList.toggle('completed', task.completed);
+    renderProgress();
+    if (state.tasks.every(t => t.completed)) renderAll();
+    enqueue({ action: task.completed ? 'complete_task' : 'uncomplete_task', task_id: task.task_id });
+  }
 
-    const rowEl = document.querySelector('[data-sort-order="' + task.sort_order + '"]');
-    if (rowEl) rowEl.classList.add('completed');
+  function removeTask(task) {
+    state.tasks = state.tasks.filter(t => t.task_id !== task.task_id);
+    saveJSON(CACHE_KEY, state);
+    renderAll();
+    enqueue({ action: 'remove_task', task_id: task.task_id });
+  }
 
-    renderProgress(state.tasks);
-
-    if (state.tasks.every(t => t.completed)) {
-      handleAllComplete();
-      return;
+  async function startFresh() {
+    if (state.tasks.length && !state.tasks.every(t => t.completed)) {
+      if (!confirm('Start a fresh list? Anything not done gets left behind.')) return;
     }
-
+    setBusy(true);
+    hideChanges();
     try {
-      await postAction({
-        action: 'complete_task',
-        session_id: state.session.session_id,
-        sort_order: task.sort_order
-      });
+      const data = await api.post({ action: 'apply', mode: 'new', add: [] });
+      setState(data);
+      setEditing(false);
     } catch (err) {
-      console.warn('complete_task POST failed:', err);
+      showError(err.message);
+    } finally {
+      setBusy(false);
     }
   }
 
-  async function handleAllComplete() {
-    const content = $('content');
-    content.innerHTML = '<div class="complete-state">' +
-      '<div class="big">&#10003;</div>' +
-      '<p class="headline">All done!</p>' +
-      '<p>Great work.</p>' +
-      '</div>';
+  function enqueue(op) {
+    const q = loadJSON(QUEUE_KEY) || [];
+    q.push(op);
+    saveJSON(QUEUE_KEY, q);
+    flushQueue();
+  }
 
+  let flushing = false;
+  async function flushQueue() {
+    if (flushing) return;
+    flushing = true;
     try {
-      await postAction({
-        action: 'complete_session',
-        session_id: state.session.session_id
-      });
-      localStorage.removeItem(CACHE_KEY);
+      let q = loadJSON(QUEUE_KEY) || [];
+      while (q.length) {
+        await api.post(q[0]);
+        q = q.slice(1);
+        saveJSON(QUEUE_KEY, q);
+      }
     } catch (err) {
-      console.warn('complete_session POST failed:', err);
+      console.warn('queued op failed, will retry:', err);
+    } finally {
+      flushing = false;
     }
   }
 
-  function renderCarrySummary(tasks) {
-    const carries = tasks.filter(t => t.carry_note && t.carry_note.trim());
-    const el = $('carry-summary');
-    if (carries.length === 0) { el.hidden = true; return; }
+  // =========================================================================
+  // Composer: type or dictate, then send
+  // =========================================================================
 
-    el.hidden = false;
-    el.innerHTML = '<h2>Carry Notes</h2>';
-    for (const t of carries) {
-      const item = document.createElement('div');
-      item.className = 'carry-item';
-      const strong = document.createElement('strong');
-      strong.textContent = t.zone + ': ';
-      item.appendChild(strong);
-      item.appendChild(document.createTextNode(t.carry_note));
-      el.appendChild(item);
-    }
+  function bindComposer() {
+    const box = $('dump');
+    const send = $('send');
+
+    const sync = () => {
+      box.style.height = 'auto';
+      box.style.height = Math.min(box.scrollHeight, window.innerHeight * 0.4) + 'px';
+      send.disabled = busy || !box.value.trim();
+      measureComposer();
+    };
+    box.addEventListener('input', sync);
+    box.addEventListener('keydown', e => {
+      if (e.key === 'Enter' && (e.metaKey || e.ctrlKey)) { e.preventDefault(); submitDump(); }
+    });
+    send.addEventListener('click', submitDump);
+    $('changes-close').addEventListener('click', hideChanges);
+    sync();
   }
 
-  function showEmptyState() {
-    $('content').hidden = false;
-    $('content').innerHTML = '<div class="empty-state"><p>Nothing planned yet.</p></div>';
-    $('progress-bar').style.width = '0%';
-    $('progress-label').textContent = '';
-    $('carry-summary').hidden = true;
-  }
+  async function submitDump() {
+    const box = $('dump');
+    const text = box.value.trim();
+    if (!text || busy) return;
+    if (recognition && listening) recognition.stop();
 
-  function showError(msg) {
-    $('content').hidden = false;
-    $('content').innerHTML = '<div class="error-state"><p>' + msg + '</p></div>';
-  }
-
-  function showCompletionState() {
-    $('content').innerHTML = '<div class="complete-state">' +
-      '<div class="big">&#10003;</div>' +
-      '<p class="headline">All done!</p>' +
-      '<p>Great work.</p>' +
-      '</div>';
-  }
-
-  function hideLoading() {
-    $('loading').hidden = true;
-  }
-
-  function saveCache(data) {
-    try { localStorage.setItem(CACHE_KEY, JSON.stringify(data)); } catch (_) {}
-  }
-
-  function loadCache() {
+    setBusy(true);
+    hint('Thinking…');
     try {
-      const raw = localStorage.getItem(CACHE_KEY);
-      return raw ? JSON.parse(raw) : null;
-    } catch (_) { return null; }
+      const data = await api.post({ action: 'dictate', text });
+      box.value = '';
+      box.dispatchEvent(new Event('input'));
+      setState(data);
+      showChanges(data.changes);
+      hint('');
+    } catch (err) {
+      showError(err.message);
+      hint('Your words are still in the box. Try again.');
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  function setBusy(on) {
+    busy = on;
+    $('send').classList.toggle('busy', on);
+    $('send').disabled = on || !$('dump').value.trim();
+    $('dump').disabled = on;
+    $('fresh-btn').disabled = on;
+  }
+
+  function hint(text) { $('composer-hint').textContent = text; }
+
+  function measureComposer() {
+    document.documentElement.style.setProperty('--composer-h', $('composer').offsetHeight + 'px');
+  }
+
+  // ---------- speech ----------
+
+  let recognition = null;
+  let listening = false;
+
+  function setupMic() {
+    const SR = window.SpeechRecognition || window.webkitSpeechRecognition;
+    if (!SR) return;
+    recognition = new SR();
+    recognition.lang = 'en-AU';
+    recognition.continuous = true;
+    recognition.interimResults = true;
+
+    const mic = $('mic');
+    mic.hidden = false;
+    const box = $('dump');
+    let committed = '';
+
+    mic.addEventListener('click', () => {
+      if (listening) { recognition.stop(); return; }
+      committed = box.value ? box.value.replace(/\s*$/, ' ') : '';
+      try { recognition.start(); } catch (_) {}
+    });
+
+    recognition.onstart = () => { listening = true; mic.classList.add('listening'); hint('Listening. Tap the mic again when you\'re done.'); };
+    recognition.onend = () => { listening = false; mic.classList.remove('listening'); if (!busy) hint(''); box.dispatchEvent(new Event('input')); };
+    recognition.onerror = e => { if (e.error !== 'no-speech' && e.error !== 'aborted') hint('Mic hiccup: ' + e.error + '. The keyboard mic works too.'); };
+    recognition.onresult = e => {
+      let finals = '', interim = '';
+      for (let i = 0; i < e.results.length; i++) {
+        const r = e.results[i];
+        if (r.isFinal) finals += r[0].transcript + ' ';
+        else interim += r[0].transcript;
+      }
+      box.value = committed + finals + interim;
+      box.dispatchEvent(new Event('input'));
+    };
+  }
+
+  // =========================================================================
+  // Header
+  // =========================================================================
+
+  function bindHeader() {
+    $('edit-btn').addEventListener('click', () => setEditing(!editing));
+    $('fresh-btn').addEventListener('click', startFresh);
+  }
+
+  function setEditing(on) {
+    editing = on;
+    document.body.classList.toggle('editing', on);
+    $('edit-btn').classList.toggle('on', on);
+    $('edit-btn').textContent = on ? 'Done' : 'Edit';
+  }
+
+  // =========================================================================
+  // Change summary + errors
+  // =========================================================================
+
+  let changesTimer = null;
+
+  function showChanges(ch) {
+    if (!ch) return;
+    const items = [];
+    if (ch.mode === 'new') items.push('<li><b>Fresh list.</b></li>');
+    for (const a of ch.added || []) items.push('<li>+ <b>' + esc(a.task) + '</b> <span style="color:var(--ink-muted)">· ' + esc(a.zone) + '</span></li>');
+    for (const c of ch.completed || []) items.push('<li>✓ ' + esc(c) + '</li>');
+    for (const u of ch.uncompleted || []) items.push('<li>↺ ' + esc(u) + '</li>');
+    for (const r of ch.removed || []) items.push('<li>− ' + esc(r) + '</li>');
+    if (!items.length) items.push('<li>Nothing to change. Already on top of it.</li>');
+
+    const counts = [];
+    if ((ch.added || []).length) counts.push((ch.added).length + ' added');
+    if ((ch.completed || []).length) counts.push((ch.completed).length + ' done');
+    if ((ch.removed || []).length) counts.push((ch.removed).length + ' dropped');
+
+    const el = $('changes');
+    el.classList.remove('error');
+    $('changes-title').textContent = counts.length ? counts.join(' · ') : 'Updated';
+    $('changes-list').innerHTML = items.join('');
+    const note = $('changes-note');
+    note.hidden = !ch.note;
+    note.textContent = ch.note || '';
+    el.classList.add('show');
+    clearTimeout(changesTimer);
+    changesTimer = setTimeout(hideChanges, 9000);
+  }
+
+  function showError(message) {
+    const el = $('changes');
+    el.classList.add('error');
+    $('changes-title').textContent = 'Hmm';
+    $('changes-list').innerHTML = '<li>' + esc(message || 'Something went wrong.') + '</li>';
+    $('changes-note').hidden = true;
+    el.classList.add('show');
+    clearTimeout(changesTimer);
+    changesTimer = setTimeout(hideChanges, 9000);
+  }
+
+  function hideChanges() { $('changes').classList.remove('show'); }
+
+  // =========================================================================
+  // Utilities
+  // =========================================================================
+
+  function esc(s) {
+    return String(s).replace(/[&<>"']/g, c => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+  }
+
+  function saveJSON(key, data) {
+    try { localStorage.setItem(key, JSON.stringify(data)); } catch (_) {}
+  }
+
+  function loadJSON(key) {
+    try { const raw = localStorage.getItem(key); return raw ? JSON.parse(raw) : null; } catch (_) { return null; }
   }
 </script>
 </body>
