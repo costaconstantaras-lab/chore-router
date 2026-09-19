@@ -434,8 +434,41 @@
     { name: 'Errands',                hint: 'anything away from the house: shops, post office, pharmacy' }
   ];
   const ZONE_NAMES = ZONES.map(z => z.name);
-  // These always close out the walk, whatever room you start in.
-  const TERMINAL_ZONES = new Set(['Garden', 'Shed', 'Errands']);
+
+  // The house as a graph, from the confirmed plan (docs/house-plan). Nodes are
+  // doors and hallway points; edge lengths are rough metres. The router walks
+  // this graph, so a change to the house is a change to this list.
+  const EDGES = [
+    ['porch', 'hall_front', 1.5],
+    ['hall_front', 'hall_lounge', 2.25], ['hall_lounge', 'hall_christo', 2], ['hall_christo', 'hall_laundry', 3.5],
+    ['hall_laundry', 'hall_kitchen', 3], ['hall_kitchen', 'hall_bath', 1.75], ['hall_bath', 'hall_back', 2.75],
+    ['myroom', 'hall_front', 1.5], ['sofia', 'hall_front', 1], ['lounge', 'hall_lounge', 1], ['christo', 'hall_christo', 1],
+    ['laundry', 'hall_laundry', 1], ['toilet', 'laundry', 4], ['kitchen', 'hall_kitchen', 1], ['kitchen', 'lounge', 3],
+    ['bathroom', 'hall_bath', 1], ['kitchen', 'hall_back', 3],
+    ['hall_back', 'verandah', 1.5], ['verandah', 'garden', 3], ['garden', 'shed', 5],
+    ['garden', 'sidetop', 5], ['sidetop', 'bins', 8], ['bins', 'sidegate', 7.5], ['sidegate', 'porch', 6],
+    ['porch', 'errands', 25]
+  ];
+  const ZONE_NODE = {
+    'Porch / Front Exterior': 'porch', 'Hallway': 'hall_christo', "Sofia's Room": 'sofia', 'Lounge': 'lounge',
+    'Kitchen / Living': 'kitchen', 'Bins': 'bins', "Christo's Room": 'christo', 'My Room': 'myroom', 'Laundry': 'laundry',
+    'Spare Toilet': 'toilet', 'Bathroom': 'bathroom', 'Rear Verandah': 'verandah', 'Garden': 'garden', 'Shed': 'shed', 'Errands': 'errands'
+  };
+  const DIST = (() => {
+    const nodes = [...new Set(EDGES.flatMap(e => [e[0], e[1]]))];
+    const d = {};
+    for (const a of nodes) { d[a] = {}; for (const b of nodes) d[a][b] = a === b ? 0 : Infinity; }
+    for (const [a, b, w] of EDGES) { d[a][b] = Math.min(d[a][b], w); d[b][a] = Math.min(d[b][a], w); }
+    for (const k of nodes) for (const i of nodes) for (const j of nodes) {
+      if (d[i][k] + d[k][j] < d[i][j]) d[i][j] = d[i][k] + d[k][j];
+    }
+    return d;
+  })();
+  function walk(fromNode, toZone) {
+    const to = ZONE_NODE[toZone];
+    if (!to || !DIST[fromNode] || DIST[fromNode][to] === undefined) return 12;
+    return DIST[fromNode][to];
+  }
 
   // =========================================================================
   // State
@@ -476,6 +509,13 @@
     listRef = db.doc(LIST_PATH);
     listRef.onSnapshot(snap => {
       doc = snap.exists ? normaliseDoc(snap.data()) : null;
+      // A list written from outside (the /chore-dump skill) arrives unrouted: sort_order 0.
+      if (doc && doc.tasks.length && doc.tasks.some(t => !t.sort_order) && !readOnly && !snap.metadata.hasPendingWrites) {
+        const next = clone(doc);
+        next.tasks = resequence(next.tasks, next.start_zone);
+        save(next);
+        return;
+      }
       renderAll();
     }, err => {
       showError(err && err.code === 'revoked'
@@ -581,7 +621,7 @@
       const header = document.createElement('div');
       header.className = 'zone-header';
       header.textContent = zone;
-      if (ZONE_NAMES.includes(zone) && !TERMINAL_ZONES.has(zone)) {
+      if (ZONE_NAMES.includes(zone) && zone !== 'Errands') {
         header.classList.add('tappable');
         header.setAttribute('role', 'button');
         header.setAttribute('tabindex', '0');
@@ -736,7 +776,7 @@
     }
     if (plan.start_zone) {
       const z = normaliseZone(plan.start_zone);
-      if (!TERMINAL_ZONES.has(z) && z !== next.start_zone) { next.start_zone = z; changes.start_zone = z; }
+      if (z !== 'Errands' && z !== next.start_zone) { next.start_zone = z; changes.start_zone = z; }
     }
 
     const complete = new Set(plan.complete);
@@ -786,38 +826,107 @@
     return { next, changes };
   }
 
-  // Walk order: unattended jobs first, deadlines next, then the rooms in walking
-  // order starting from wherever you are, with Garden, Shed and Errands last.
-  // A prerequisite that sits later in the walk is pulled up to just before the
-  // task that needs it (go and get the washing, then fold it where you are).
+  // Walk order, built from the workload rather than a fixed lap:
+  //   1. unattended jobs (a wash) first, then anything with a deadline;
+  //   2. from wherever you are, go to the nearest room that has something ready
+  //      to do, and do everything there;
+  //   3. if something you just did carries to another room, go there next and
+  //      do that room while you're in it;
+  //   4. a task that needs another done first waits until it is; you never walk
+  //      back for a prerequisite.
+  // Done tasks ride along with their room so ticks stay where you saw them.
   function resequence(list, startZone) {
-    const n = ZONE_NAMES.length;
-    const startRank = startZone ? zoneRank(startZone) : 0;
-    const walkRank = zone => {
-      const r = zoneRank(zone);
-      if (r >= n) return n + 10;
-      if (TERMINAL_ZONES.has(zone)) return n + r;
-      return (r - startRank + n) % n;
-    };
-    const rank = t => t.priority === 'start' ? -2 : t.priority === 'urgent' ? -1 : walkRank(t.zone);
-    const sorted = list.slice().sort((a, b) => (rank(a) - rank(b)) || (a.sort_order - b.sort_order));
+    const byId = new Map(list.map(t => [t.task_id, t]));
+    const open = list.filter(t => !t.completed);
+    const done = list.filter(t => t.completed);
+    const pinned = open.filter(t => t.priority === 'start').sort((a, b) => a.sort_order - b.sort_order);
+    const urgent = open.filter(t => t.priority === 'urgent').sort((a, b) => a.sort_order - b.sort_order);
+    let remaining = open.filter(t => !t.priority).sort((a, b) => a.sort_order - b.sort_order);
 
-    for (let pass = 0; pass < sorted.length; pass++) {
-      let moved = false;
-      for (let i = 0; i < sorted.length; i++) {
-        const t = sorted[i];
-        if (!t.after_id || t.after_id === t.task_id) continue;
-        const p = sorted.findIndex(o => o.task_id === t.after_id);
-        if (p === -1 || p < i) continue;
-        const [parent] = sorted.splice(p, 1);
-        sorted.splice(i, 0, parent);
-        moved = true;
+    const placed = new Set(pinned.concat(urgent).map(t => t.task_id));
+    const ready = t => {
+      if (!t.after_id || t.after_id === t.task_id) return true;
+      const parent = byId.get(t.after_id);
+      return !parent || parent.completed || placed.has(parent.task_id);
+    };
+
+    const order = [];
+    let here = (startZone && ZONE_NODE[startZone]) || 'hall_front';
+    let hereZone = startZone || '';
+    let forced = '';
+    let comeBackTo = '';
+    let guard = 0;
+    while (remaining.length && guard++ < 500) {
+      const zones = new Map();
+      for (const t of remaining) if (ready(t)) { if (!zones.has(t.zone)) zones.set(t.zone, []); zones.get(t.zone).push(t); }
+      if (zones.size === 0) { order.push(...remaining); remaining = []; break; }
+
+      let zone = forced && zones.has(forced) ? forced : null;
+
+      // Something here is waiting on a job elsewhere (fold on the couch, washing
+      // still in the laundry): go and do that job, then come back.
+      if (!zone && hereZone) {
+        let best = Infinity;
+        for (const t of remaining) {
+          if (t.zone !== hereZone || ready(t)) continue;
+          const parent = byId.get(t.after_id);
+          if (!parent || !zones.has(parent.zone) || !zones.get(parent.zone).includes(parent)) continue;
+          const d = walk(here, parent.zone);
+          if (d < best) { best = d; zone = parent.zone; comeBackTo = hereZone; }
+        }
       }
-      if (!moved) break;
+      if (!zone && comeBackTo && zones.has(comeBackTo)) { zone = comeBackTo; comeBackTo = ''; }
+
+      if (!zone) {
+        let best = Infinity;
+        for (const [z, ts] of zones) {
+          const score = walk(here, z) - Math.min(ts.length, 5) * 0.2;
+          if (score < best) { best = score; zone = z; }
+        }
+      }
+
+      // Do everything in this room, including tasks that become ready as we go.
+      const batch = [];
+      let more = true;
+      while (more) {
+        more = false;
+        for (const t of remaining) {
+          if (t.zone === zone && ready(t) && !placed.has(t.task_id)) { batch.push(t); placed.add(t.task_id); more = true; }
+        }
+        remaining = remaining.filter(t => !placed.has(t.task_id));
+      }
+      order.push(...batch);
+
+      forced = '';
+      for (const t of batch) {
+        const dest = carryDestination(t.carry_note);
+        if (dest && dest !== zone && remaining.some(r => r.zone === dest)) forced = dest;
+      }
+      here = ZONE_NODE[zone] || here;
+      hereZone = zone;
     }
 
-    sorted.forEach((t, i) => { t.sort_order = i + 1; });
-    return sorted;
+    const result = pinned.concat(urgent, order);
+    for (const t of done) {
+      // A ticked task stays with its group: pinned with pinned, urgent with urgent, else its room.
+      const same = t.priority ? (o => o.priority === t.priority) : (o => !o.priority && o.zone === t.zone);
+      let at = -1;
+      for (let i = result.length - 1; i >= 0; i--) if (same(result[i])) { at = i; break; }
+      if (at !== -1) result.splice(at + 1, 0, t);
+      else if (t.priority === 'start') result.unshift(t);
+      else if (t.priority === 'urgent') result.splice(pinned.length, 0, t);
+      else result.push(t);
+    }
+    result.forEach((t, i) => { t.sort_order = i + 1; });
+    return result;
+  }
+
+  function carryDestination(note) {
+    const m = String(note || '').match(/(?:→|->|=>)\s*(.+)$/);
+    if (!m) return '';
+    const tail = m[1].trim().toLowerCase().replace(/[.!]+$/, '');
+    return ZONE_NAMES.find(n => n.toLowerCase() === tail) ||
+      ZONE_NAMES.find(n => tail.includes(n.toLowerCase().split(' / ')[0])) || '';
   }
 
   function zoneRank(zone) {
@@ -858,16 +967,19 @@
       '{"mode":"append","start_zone":"","add":[{"task":"Clean oven","zone":"Kitchen / Living","carry_note":"","priority":"","due":"","after":""}],"complete":["id1"],"remove":[],"note":""}',
       '',
       'How the list gets ordered (you do not order it, but you feed the router):',
-      '- The router walks the house in the zone order below, starting from start_zone if set, with Garden, Shed and Errands always last.',
+      '- The router knows the walking distances between rooms. From wherever he is it goes to the nearest room with something ready to do, does everything there, and moves on.',
       '- Tasks with priority "start" go before everything, then "urgent", then the walk.',
-      '- A task with "after" set to the text of another task (new or existing) is pulled to sit right after it, even across rooms.',
+      '- If a task carries something to another room, the router goes to that room next and does everything there too. So carry_note MUST end with an arrow and the exact destination zone name: "Carry towels → Laundry".',
+      '- A task with "after" set to the text of another task (new or existing) waits until that task is done. Nobody walks back for a prerequisite.',
       '',
-      'Chain work so nothing gets carried twice and no room gets visited twice for no reason:',
+      'Clump work so nothing is carried twice and no room is visited for one small thing:',
       '- If he says where he is ("sitting on the couch", "in the kitchen"), set start_zone to that zone. Otherwise leave it "".',
       '- Something that can be done sitting down where he is (folding washing on the couch, sorting mail) goes in THAT zone with a carry_note to where it ends up.',
       '- Then add the follow-on in the destination room with "after" pointing at the first task, e.g. fold washing in the Lounge with carry_note "Carry folded clothes → Christo\'s Room", then "Put away Christo\'s clothes" in Christo\'s Room with after "Fold washing".',
       '- Bringing washing in, folding it, putting it away, making the bed: that is a chain. Say so with "after".',
       '- Wet jobs (mop, shower spray) go after the dry jobs in the same room. Use "after" if the order matters.',
+      '- Kitchen / Living is one zone with two ends and a bench that belongs to both. List kitchen-end tasks together and living-end tasks together.',
+      '- The wheelie bins sit outside the kitchen window: emptying the kitchen bin into them is a Kitchen / Living task. The Bins zone is only for wheeling bins out to the street or back in. Bin night is Wednesday; if it is Wednesday and he mentions bins, make it urgent with due "tonight".',
       '',
       'Rules:',
       '- mode: "new" only when he clearly wants to start over ("new session", "start fresh", "clear the list", "scrap all that"). Otherwise "append".',

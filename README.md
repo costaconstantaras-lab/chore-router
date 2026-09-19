@@ -10,14 +10,15 @@ Open the app, tap the box, dictate whatever's in your head. New chores get added
 
 The Quick / Careful toggle under the box picks the model tier. Quick answers in a couple of seconds and is right for a morning walk-through. Careful thinks first, for a long or tangled dump.
 
-How the walk is built, in order of precedence:
+How the walk is built. There is no fixed lap; the app carries the house as a graph of doors and hallway points with rough distances (from `docs/house-plan/`, the confirmed master plan) and builds each lap from what's on the list:
 
-1. Anything that runs unattended (a wash, the dishwasher) goes first.
-2. Anything with a deadline goes next.
-3. Then the rooms in walking order, starting from wherever you are. Say where you are in the dictation ("I'm on the couch") or tap a room header to start the walk there. Garden, Shed and Errands always close it out.
-4. A task that needs another done first ("fold washing" needs "bring washing in") pulls that prerequisite up to sit just before it, even from another room. The model marks these chains when you describe them.
+1. Anything that runs unattended (a wash, the dishwasher) goes first. Anything with a deadline goes next.
+2. From wherever you are, go to the nearest room with something ready to do and do everything in it. Say where you are in the dictation ("I'm on the couch") or tap a room header. A room with several jobs pulls slightly harder than a room with one.
+3. If a job carries something to another room, go there next and do that room while you're in it. The model writes carry notes as `Carry <thing> → <Zone>` so the router can read the destination.
+4. If a job in the current room is waiting on something elsewhere, go and do that first, then come back.
+5. A job that needs another done first waits until it is. Nobody walks back for a prerequisite.
 
-The Apps Script build does steps 1 to 3 without the start zone, and does not do step 4 yet.
+The Apps Script build still uses the older fixed zone order and does none of steps 2 to 5. The artifact is the reference; port when needed.
 
 **`index.html` plus `apps-script/Code.gs` is the self-hosted version** on Google Sheets and Apps Script, for when you want the sheet as a visible record or want it outside claude.ai. The rest of this README is about that build. The routing rules, the zone table and the prompt are the same in both, so a change to the house goes in both places.
 

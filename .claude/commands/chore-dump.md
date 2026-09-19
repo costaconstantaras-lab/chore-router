@@ -75,10 +75,11 @@ If the transcript was unambiguous, push straight away. Ask only when a task has 
 
 **Artifact:** apply the plan yourself and write the whole document back with `ArtifactData` set on `list/current`:
 
-1. Mark completed ids `completed: true`. Drop removed ids. Append new tasks with a fresh 12-character `task_id`, `completed: false`, `sort_order: 0`.
-2. Re-sort: `priority: "start"` first, then `"urgent"`, then by the zone order above; keep existing order within a group. Renumber `sort_order` from 1.
-3. If mode is `new`, first copy the old document to `history/<old session_id>` (set), then write a fresh document with a new `session_id` and `started_at`.
-4. Set `updated_at` to now (ISO string).
+1. Mark completed ids `completed: true`. Drop removed ids. Append new tasks with a fresh 12-character `task_id`, `completed: false`, `after_id` set to the id of any task it must follow, and `sort_order: 0`.
+2. Do not sort. Leave `sort_order: 0` on the new tasks: the page routes the list through the house graph the moment it loads and saves the order back.
+3. Write carry notes as `Carry <thing> → <exact zone name>` so the router can read the destination.
+4. If mode is `new`, first copy the old document to `history/<old session_id>` (set), then write a fresh document with a new `session_id`, `started_at` and `start_zone: ""`.
+5. Set `updated_at` to now (ISO string).
 
 The page is subscribed to the document, so it updates on his phone the moment the write lands.
 
